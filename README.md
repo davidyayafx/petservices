@@ -1,4 +1,4 @@
-# 🐾 PetServices (PetConnect) — SENA GA7-220501096
+# 🐾 PetServices (PetConnect) — SENA 
 
 Proyecto web Java con **Servlets + JSP** para las evidencias de competencia del SENA
 (ficha 3186628). Implementa la gestión de clientes (interfaz web) y, a partir de la
