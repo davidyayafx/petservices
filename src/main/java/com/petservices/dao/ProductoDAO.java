@@ -3,59 +3,66 @@ package com.petservices.dao;
 import com.petservices.modelo.Producto;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * DAO: ProductoDAO — simulación en memoria (misma estrategia que ClienteDAO).
- *
- * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
- */
-public class ProductoDAO {
+public class ProductoDAO implements IProductoDAO {
 
-    private static final List<Producto> baseDatos  = new ArrayList<>();
-    private static final AtomicInteger   contadorId = new AtomicInteger(1);
+    private static final ConcurrentHashMap<Long, Producto> BASE_DATOS = new ConcurrentHashMap<>();
+    private static final AtomicLong CONTADOR_ID = new AtomicLong(1);
 
     static {
-        baseDatos.add(new Producto(contadorId.getAndIncrement(), "Croquetas Pedigree Adulto 10kg",
-                "Alimento premium", 45000.00, "disponible", 30, 2, null));
-        baseDatos.add(new Producto(contadorId.getAndIncrement(), "Shampoo para perros",
-                "Antipulgas", 18000.00, "disponible", 50, 3, null));
-        baseDatos.add(new Producto(contadorId.getAndIncrement(), "Juguete Kong",
-                "Resistente", 25000.00, "disponible", 15, 2, null));
-        baseDatos.add(new Producto(contadorId.getAndIncrement(), "Arena para gatos",
-                "10kg", 22000.00, "disponible", 40, 2, null));
+        guardarDummy("Croquetas Pedigree Adulto 10kg", "Alimento", 45000.00, 30);
+        guardarDummy("Shampoo Antipulgas", "Medicamento", 18000.00, 50);
+        guardarDummy("Collar Reflectivo", "Accesorio", 25000.00, 15);
+        guardarDummy("Juguete Mordedor", "Juguete", 22000.00, 40);
     }
 
-    public boolean insertar(Producto p) {
-        p.setIdProducto(contadorId.getAndIncrement());
-        if (p.getEstado() == null) p.setEstado("disponible");
-        baseDatos.add(p);
+    private static void guardarDummy(String nombre, String categoria, double precio, int stock) {
+        long id = CONTADOR_ID.getAndIncrement();
+        Producto producto = new Producto((int) id, nombre, categoria, precio, stock);
+        BASE_DATOS.put(id, producto);
+    }
+
+    @Override
+    public boolean insertar(Producto producto) {
+        if (producto == null) {
+            return false;
+        }
+        long id = CONTADOR_ID.getAndIncrement();
+        producto.setIdProducto((int) id);
+        if (producto.getEstado() == null || producto.getEstado().trim().isEmpty()) {
+            producto.setEstado("disponible");
+        }
+        BASE_DATOS.put(id, producto);
         return true;
     }
 
+    @Override
     public List<Producto> listarTodos() {
-        return new ArrayList<>(baseDatos);
+        List<Producto> lista = new ArrayList<>(BASE_DATOS.values());
+        lista.sort(Comparator.comparingInt(Producto::getIdProducto));
+        return lista;
     }
 
+    @Override
     public Producto buscarPorId(int id) {
-        for (Producto p : baseDatos) {
-            if (p.getIdProducto() == id) return p;
-        }
-        return null;
+        return BASE_DATOS.get((long) id);
     }
 
-    public boolean actualizar(Producto nuevo) {
-        for (int i = 0; i < baseDatos.size(); i++) {
-            if (baseDatos.get(i).getIdProducto() == nuevo.getIdProducto()) {
-                baseDatos.set(i, nuevo);
-                return true;
-            }
+    @Override
+    public boolean actualizar(Producto producto) {
+        if (producto == null || !BASE_DATOS.containsKey((long) producto.getIdProducto())) {
+            return false;
         }
-        return false;
+        BASE_DATOS.put((long) producto.getIdProducto(), producto);
+        return true;
     }
 
+    @Override
     public boolean eliminar(int id) {
-        return baseDatos.removeIf(p -> p.getIdProducto() == id);
+        return BASE_DATOS.remove((long) id) != null;
     }
 }

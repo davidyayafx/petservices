@@ -1,68 +1,130 @@
 package com.petservices.modelo;
 
-/**
- * Clase Modelo: Producto
- * Representa la entidad "producto" ofrecido por un establecimiento
- * (petshop / veterinaria).
- *
- * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
- */
 public class Producto {
 
-    private int    idProducto;
+    private int idProducto;
     private String nombre;
-    private String descripcion;
+    private String categoria;
     private double precio;
-    private String estado;   // disponible | agotado, etc.
-    private int    stock;
-    private int    idEstablecimiento;
-    private Integer idCliente; // puede ser null
+    private int stock;
+    private String descripcion;
+    private String estado;
+    private int idEstablecimiento;
+    private Integer idCliente;
 
-    public Producto() {}
+    public Producto() {
+    }
 
-    public Producto(String nombre, String descripcion, double precio,
-                     int stock, int idEstablecimiento) {
-        this.nombre      = nombre;
-        this.descripcion = descripcion;
-        this.precio      = precio;
-        this.estado      = "disponible";
-        this.stock       = stock;
+    public Producto(String nombre, String categoria, double precio, int stock) {
+        this.nombre = nombre;
+        this.categoria = categoria;
+        this.precio = precio;
+        this.stock = stock;
+        this.descripcion = categoria;
+        this.estado = "disponible";
+    }
+
+    public Producto(int idProducto, String nombre, String categoria, double precio, int stock) {
+        this(nombre, categoria, precio, stock);
+        this.idProducto = idProducto;
+    }
+
+    public Producto(String nombre, String descripcion, double precio, int stock, int idEstablecimiento) {
+        this(nombre, descripcion, precio, stock);
         this.idEstablecimiento = idEstablecimiento;
+        this.descripcion = descripcion;
+        this.categoria = descripcion;
     }
 
     public Producto(int idProducto, String nombre, String descripcion, double precio,
-                     String estado, int stock, int idEstablecimiento, Integer idCliente) {
-        this.idProducto  = idProducto;
-        this.nombre      = nombre;
-        this.descripcion = descripcion;
-        this.precio      = precio;
-        this.estado      = estado;
-        this.stock       = stock;
-        this.idEstablecimiento = idEstablecimiento;
-        this.idCliente   = idCliente;
+                    String estado, int stock, int idEstablecimiento, Integer idCliente) {
+        this(nombre, descripcion, precio, stock, idEstablecimiento);
+        this.idProducto = idProducto;
+        this.estado = estado;
+        this.idCliente = idCliente;
     }
 
-    public int getIdProducto() { return idProducto; }
-    public void setIdProducto(int idProducto) { this.idProducto = idProducto; }
+    public int getId() {
+        return idProducto;
+    }
 
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public void setId(int id) {
+        this.idProducto = id;
+    }
 
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public int getIdProducto() {
+        return idProducto;
+    }
 
-    public double getPrecio() { return precio; }
-    public void setPrecio(double precio) { this.precio = precio; }
+    public void setIdProducto(int idProducto) {
+        this.idProducto = idProducto;
+    }
 
-    public String getEstado() { return estado; }
-    public void setEstado(String estado) { this.estado = estado; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public int getStock() { return stock; }
-    public void setStock(int stock) { this.stock = stock; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public int getIdEstablecimiento() { return idEstablecimiento; }
-    public void setIdEstablecimiento(int idEstablecimiento) { this.idEstablecimiento = idEstablecimiento; }
+    public String getCategoria() {
+        return categoria;
+    }
 
-    public Integer getIdCliente() { return idCliente; }
-    public void setIdCliente(Integer idCliente) { this.idCliente = idCliente; }
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+        this.descripcion = categoria;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+        if (this.categoria == null || this.categoria.trim().isEmpty()) {
+            this.categoria = descripcion;
+        }
+    }
+
+    public double getPrecio() {
+        return precio;
+    }
+
+    public void setPrecio(double precio) {
+        this.precio = precio;
+    }
+
+    public int getStock() {
+        return stock;
+    }
+
+    public void setStock(int stock) {
+        this.stock = stock;
+    }
+
+    public String getEstado() {
+        return estado;
+    }
+
+    public void setEstado(String estado) {
+        this.estado = estado;
+    }
+
+    public int getIdEstablecimiento() {
+        return idEstablecimiento;
+    }
+
+    public void setIdEstablecimiento(int idEstablecimiento) {
+        this.idEstablecimiento = idEstablecimiento;
+    }
+
+    public Integer getIdCliente() {
+        return idCliente;
+    }
+
+    public void setIdCliente(Integer idCliente) {
+        this.idCliente = idCliente;
+    }
 }

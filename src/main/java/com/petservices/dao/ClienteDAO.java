@@ -2,116 +2,94 @@ package com.petservices.dao;
 
 import com.petservices.modelo.Cliente;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * DAO (Data Access Object): ClienteDAO
- * ──────────────────────────────────────────────────────────────────────────
- * SIMULACIÓN EN MEMORIA — No requiere base de datos para la demo.
- * En producción, reemplaza los métodos por conexiones JDBC a MySQL
- * usando el modelo físico en petconnect_completo.sql.
- *
- * La lista "baseDatos" actúa como tabla en RAM y el AtomicInteger
- * simula el AUTO_INCREMENT de la tabla `cliente`.
- *
- * Proyecto: PetServices - SENA GA7-220501096-AA2-EV02
- */
-public class ClienteDAO {
+public class ClienteDAO implements IClienteDAO {
 
-    // ── "Base de datos" en memoria (static = compartida en toda la app) ──
-    private static final List<Cliente>      baseDatos  = new ArrayList<>();
-    private static final AtomicInteger      contadorId = new AtomicInteger(1);
+    private static final ConcurrentHashMap<Long, Cliente> BASE_DATOS = new ConcurrentHashMap<>();
+    private static final AtomicLong CONTADOR_ID = new AtomicLong(1);
 
-    // ── Datos de prueba precargados (equivale a los INSERTs del .sql) ──
     static {
-        baseDatos.add(new Cliente(contadorId.getAndIncrement(),
-                "Alejandro Puerto", "alejandro@gmail.com", "123456", "2026-01-15"));
-        baseDatos.add(new Cliente(contadorId.getAndIncrement(),
-                "Daniel Mejia",     "daniel@gmail.com",    "123456", "2026-01-16"));
-        baseDatos.add(new Cliente(contadorId.getAndIncrement(),
-                "David Yaya",       "david@gmail.com",     "123456", "2026-01-17"));
+        guardarDummy("Alejandro Puerto", "alejandro@gmail.com", "123456", "2026-01-15");
+        guardarDummy("Daniel Mejia", "daniel@gmail.com", "123456", "2026-01-16");
+        guardarDummy("David Yaya", "david@gmail.com", "123456", "2026-01-17");
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // CREATE — Insertar nuevo cliente
-    // Equivale a: INSERT INTO cliente (nombre, correo, contraseña) VALUES (?,?,?)
-    // ──────────────────────────────────────────────────────────────────────
-    public boolean insertar(Cliente c) {
-        // Validar que el correo no esté duplicado (UNIQUE en BD real)
-        if (buscarPorCorreo(c.getCorreo()) != null) {
-            return false; // correo ya existe
+    private static void guardarDummy(String nombre, String correo, String contrasena, String fechaRegistro) {
+        long id = CONTADOR_ID.getAndIncrement();
+        Cliente cliente = new Cliente((int) id, nombre, correo, contrasena, fechaRegistro);
+        BASE_DATOS.put(id, cliente);
+    }
+
+    @Override
+    public boolean insertar(Cliente cliente) {
+        if (cliente == null || cliente.getCorreo() == null || buscarPorCorreo(cliente.getCorreo()) != null) {
+            return false;
         }
-        c.setIdCliente(contadorId.getAndIncrement());
-        c.setFechaRegistro(java.time.LocalDate.now().toString());
-        baseDatos.add(c);
+
+        long id = CONTADOR_ID.getAndIncrement();
+        cliente.setIdCliente((int) id);
+        cliente.setFechaRegistro(LocalDate.now().toString());
+        BASE_DATOS.put(id, cliente);
         return true;
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // READ — Listar todos los clientes
-    // Equivale a: SELECT * FROM cliente
-    // ──────────────────────────────────────────────────────────────────────
+    @Override
     public List<Cliente> listarTodos() {
-        return new ArrayList<>(baseDatos); // copia defensiva
+        List<Cliente> lista = new ArrayList<>(BASE_DATOS.values());
+        lista.sort(Comparator.comparingInt(Cliente::getIdCliente));
+        return lista;
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // READ — Buscar por ID
-    // Equivale a: SELECT * FROM cliente WHERE id_cliente = ?
-    // ──────────────────────────────────────────────────────────────────────
+    @Override
     public Cliente buscarPorId(int id) {
-        for (Cliente c : baseDatos) {
-            if (c.getIdCliente() == id) return c;
-        }
-        return null;
+        return BASE_DATOS.get((long) id);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // READ — Buscar por correo (usado en login)
-    // Equivale a: SELECT * FROM cliente WHERE correo = ?
-    // ──────────────────────────────────────────────────────────────────────
+    @Override
     public Cliente buscarPorCorreo(String correo) {
-        for (Cliente c : baseDatos) {
-            if (c.getCorreo().equalsIgnoreCase(correo)) return c;
+        if (correo == null) {
+            return null;
+        }
+        for (Cliente cliente : BASE_DATOS.values()) {
+            if (cliente.getCorreo() != null && cliente.getCorreo().equalsIgnoreCase(correo.trim())) {
+                return cliente;
+            }
         }
         return null;
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // UPDATE — Actualizar datos de un cliente
-    // Equivale a: UPDATE cliente SET nombre=?, correo=? WHERE id_cliente=?
-    // ──────────────────────────────────────────────────────────────────────
-    public boolean actualizar(Cliente nuevo) {
-        for (int i = 0; i < baseDatos.size(); i++) {
-            if (baseDatos.get(i).getIdCliente() == nuevo.getIdCliente()) {
-                baseDatos.set(i, nuevo);
-                return true;
-            }
+    @Override
+    public boolean actualizar(Cliente cliente) {
+        if (cliente == null || !BASE_DATOS.containsKey((long) cliente.getIdCliente())) {
+            return false;
         }
-        return false;
+
+        Cliente clienteConCorreo = buscarPorCorreo(cliente.getCorreo());
+        if (clienteConCorreo != null && clienteConCorreo.getIdCliente() != cliente.getIdCliente()) {
+            return false;
+        }
+
+        BASE_DATOS.put((long) cliente.getIdCliente(), cliente);
+        return true;
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // DELETE — Eliminar cliente por ID
-    // Equivale a: DELETE FROM cliente WHERE id_cliente = ?
-    // ──────────────────────────────────────────────────────────────────────
+    @Override
     public boolean eliminar(int id) {
-        return baseDatos.removeIf(c -> c.getIdCliente() == id);
+        return BASE_DATOS.remove((long) id) != null;
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // LOGIN — Validar credenciales
-    // Equivale a: SELECT * FROM cliente WHERE correo=? AND contraseña=?
-    // ──────────────────────────────────────────────────────────────────────
+    @Override
     public Cliente validarLogin(String correo, String contrasena) {
-        for (Cliente c : baseDatos) {
-            if (c.getCorreo().equalsIgnoreCase(correo)
-                    && c.getContrasena().equals(contrasena)) {
-                return c;
-            }
+        Cliente cliente = buscarPorCorreo(correo);
+        if (cliente == null) {
+            return null;
         }
-        return null;
+        return cliente.getContrasena() != null && cliente.getContrasena().equals(contrasena) ? cliente : null;
     }
 }

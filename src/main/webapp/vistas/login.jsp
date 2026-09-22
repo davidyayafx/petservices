@@ -1,137 +1,120 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%--
-  Vista: login.jsp
-  Formulario de inicio de sesión de PetServices.
-  Apunta al LoginServlet mediante method="post".
-
-  Proyecto: PetServices - SENA GA7-220501096-AA2-EV02
---%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - PetServices</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #6c4cff, #a88cff);
-            min-height: 100vh;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .container {
-            display: flex; width: 750px;
-            background: white; border-radius: 15px;
-            overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-        }
-        .left {
-            width: 45%; background: #6c4cff; color: white;
-            padding: 50px 35px; display: flex; flex-direction: column; justify-content: center;
-        }
-        .left h1 { font-size: 2rem; margin-bottom: 15px; }
-        .left p  { opacity: 0.85; line-height: 1.6; }
-
-        .right { width: 55%; padding: 50px 40px; }
-        .right h2 { color: #6c4cff; margin-bottom: 25px; font-size: 1.5rem; }
-
-        .form-group { margin-bottom: 18px; }
-        .form-group label {
-            display: block; font-size: 0.85rem;
-            color: #555; margin-bottom: 5px; font-weight: bold;
-        }
-        .form-group input {
-            width: 100%; padding: 11px 14px;
-            border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.95rem;
-        }
-        .form-group input:focus { outline: none; border-color: #6c4cff; }
-
-        .btn-primary {
-            width: 100%; padding: 12px; background: #6c4cff;
-            color: white; border: none; border-radius: 8px;
-            font-size: 1rem; cursor: pointer; margin-top: 5px;
-        }
-        .btn-primary:hover { background: #5936e3; }
-
-        .link { text-align: center; margin-top: 14px; font-size: 0.9rem; color: #666; }
-        .link a { color: #6c4cff; text-decoration: none; font-weight: bold; }
-
-        .alerta { padding: 10px 14px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; }
-        .alerta-error { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6cb; }
-        .alerta-exito { background: #eafaf1; color: #1e8449; border: 1px solid #a9dfbf; }
-
-        /* Hint de cuentas demo */
-        .demo-hint {
-            background: #f0edff; border-radius: 8px;
-            padding: 10px 14px; margin-top: 15px; font-size: 0.82rem; color: #555;
-        }
-        .demo-hint strong { color: #6c4cff; }
-    </style>
+    <title>Iniciar Sesión — PetServices</title>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/app.css">
+    <script>
+        (function() {
+            var theme = localStorage.getItem('petservices_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        })();
+    </script>
 </head>
-<body>
+<body class="auth-page">
 
-<div class="container">
+<button type="button" class="theme-toggle-floating" onclick="toggleTheme()" id="themeToggleBtn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <span id="themeToggleText">Modo Oscuro</span>
+</button>
 
-    <div class="left">
-        <h1>🐾 PetServices</h1>
-        <p>Bienvenido de nuevo.<br>Cuida a tu mascota con los mejores servicios de Tunja.</p>
+<div class="auth-card">
+    <div class="auth-banner">
+        <div>
+            <div class="brand-header" style="border: none; padding: 0; margin-bottom: 24px;">
+                <div class="brand-logo" style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.2);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #fde68a;">
+                        <path d="M12 2a5 5 0 0 0-5 5c0 1.5.5 3 1.5 4L12 21l3.5-10c1-1 1.5-2.5 1.5-4a5 5 0 0 0-5-5z"></path>
+                        <circle cx="12" cy="7" r="2"></circle>
+                    </svg>
+                </div>
+                <div>
+                    <div class="brand-title" style="letter-spacing: -0.01em;">PetServices</div>
+                    <div class="brand-subtitle" style="color: #a7f3d0; font-size: 0.78rem;">Plataforma de Cuidado y Pasaporte Animal</div>
+                </div>
+            </div>
+            <h2 style="font-size: 1.75rem; font-weight: 700; line-height: 1.25; margin-bottom: 14px; color: #ffffff;">
+                Bienvenido al sistema integral de mascotas
+            </h2>
+            <p style="color: #d1fae5; font-size: 0.92rem; line-height: 1.6;">
+                Accede a la gestión de clientes, pasaporte de mascotas, agendamiento de citas veterinarias y control de pedidos desde un único portal clínico y comercial.
+            </p>
+        </div>
+        <div style="font-size: 0.78rem; color: #a7f3d0; margin-top: 32px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 16px;">
+            PetConnect Passport Care
+        </div>
     </div>
 
-    <div class="right">
-        <h2>🔐 Iniciar Sesión</h2>
+    <div class="auth-form-container">
+        <h1 class="auth-title">Iniciar Sesión</h1>
+        <p class="auth-subtitle">Ingresa tus credenciales para ingresar al panel.</p>
 
-        <%--
-          ELEMENTO JSP: Scriptlet — Lee mensajes puestos por el Servlet
-          (Ej: registro exitoso, credenciales incorrectas, cierre de sesión)
-        --%>
         <%
-            String mensaje     = (String) request.getAttribute("mensaje");
+            String mensaje = (String) request.getAttribute("mensaje");
             String tipoMensaje = (String) request.getAttribute("tipoMensaje");
-
-            // También puede llegar mensaje vía query param cuando hay logout
-            String logout = request.getParameter("logout");
-            if ("ok".equals(logout) && mensaje == null) {
-                mensaje     = "👋 Sesión cerrada correctamente.";
-                tipoMensaje = "exito";
-            }
-
             if (mensaje != null && !mensaje.isEmpty()) {
+                String claseAlerta = "alert-error";
+                if ("exito".equalsIgnoreCase(tipoMensaje)) {
+                    claseAlerta = "alert-success";
+                }
         %>
-            <div class="alerta alerta-<%= tipoMensaje %>">
-                <%= mensaje %>  <%-- EXPRESIÓN JSP: muestra el mensaje dinámico --%>
+            <div class="alert <%= claseAlerta %>">
+                <span><%= mensaje %></span>
             </div>
-        <%  } %>
+        <%
+            }
+        %>
 
         <form action="<%= request.getContextPath() %>/login" method="post">
-
-            <div class="form-group">
-                <label for="correo">Correo electrónico</label>
-                <input type="email" id="correo" name="correo"
-                       placeholder="tucorreo@email.com" required>
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label class="form-label" for="correo">Correo Electrónico</label>
+                <input class="form-control" type="email" id="correo" name="correo"
+                       placeholder="ejemplo@correo.com" required autofocus>
             </div>
 
-            <div class="form-group">
-                <label for="contrasena">Contraseña</label>
-                <input type="password" id="contrasena" name="contrasena"
-                       placeholder="Tu contraseña" required>
+            <div class="form-group" style="margin-bottom: 22px;">
+                <label class="form-label" for="contrasena">Contraseña</label>
+                <input class="form-control" type="password" id="contrasena" name="contrasena"
+                       placeholder="••••••••" required>
             </div>
 
-            <button type="submit" class="btn-primary">Ingresar 🚀</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">
+                Ingresar al Sistema
+            </button>
         </form>
 
-        <div class="link">
-            <p>¿No tienes cuenta? <a href="<%= request.getContextPath() %>/registro">Regístrate</a></p>
-        </div>
-
-        <%-- Hint de cuentas preinsertadas para la demo --%>
-        <div class="demo-hint">
-            <strong>👤 Cuentas demo:</strong><br>
-            alejandro@gmail.com / 123456<br>
-            daniel@gmail.com / 123456
+        <div style="margin-top: 24px; text-align: center; font-size: 0.9rem; color: var(--color-text-muted);">
+            ¿No tienes una cuenta aún?
+            <a href="<%= request.getContextPath() %>/registro" style="color: var(--color-primary); font-weight: 600; text-decoration: none;">
+                Regístrate aquí
+            </a>
         </div>
     </div>
-
 </div>
+
+<script>
+    function updateThemeUI() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var textEl = document.getElementById('themeToggleText');
+        if (textEl) textEl.textContent = isDark ? 'Modo Claro' : 'Modo Oscuro';
+    }
+
+    function toggleTheme() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('petservices_theme', 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('petservices_theme', 'dark');
+        }
+        updateThemeUI();
+    }
+
+    document.addEventListener('DOMContentLoaded', updateThemeUI);
+</script>
 
 </body>
 </html>
