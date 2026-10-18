@@ -1,5 +1,6 @@
 package com.petservices.controller;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -15,6 +16,26 @@ abstract class BaseModuleServlet extends HttpServlet {
             return false;
         }
         return true;
+    }
+
+    protected void forward(HttpServletRequest request, HttpServletResponse response, String ruta)
+            throws ServletException, IOException {
+        request.getRequestDispatcher(ruta).forward(request, response);
+    }
+
+    protected String limpiar(String valor) {
+        return valor == null ? "" : valor.trim();
+    }
+
+    protected int parseInt(String valor, int defecto) {
+        if (valor == null || valor.trim().isEmpty()) {
+            return defecto;
+        }
+        try {
+            return Integer.parseInt(valor.trim());
+        } catch (NumberFormatException e) {
+            return defecto;
+        }
     }
 
     protected void prepararCabecera(HttpServletRequest request) {

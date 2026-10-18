@@ -94,7 +94,7 @@ public class LoginServlet extends HttpServlet {
             sesion.setMaxInactiveInterval(30 * 60);
 
             // Redirigir al dashboard principal (PRG pattern)
-            response.sendRedirect(request.getContextPath() + "/clientes");
+            response.sendRedirect(request.getContextPath() + "/dashboard");
 
         } else {
             // 5b. CREDENCIALES INCORRECTAS → Volver al login con error
