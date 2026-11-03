@@ -1,6 +1,7 @@
 package com.petservices.dao;
 
 import com.petservices.modelo.Cliente;
+import com.petservices.util.PasswordUtil;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public class ClienteDAO implements IClienteDAO {
 
     private static void guardarDummy(String nombre, String correo, String contrasena, String fechaRegistro) {
         long id = CONTADOR_ID.getAndIncrement();
-        Cliente cliente = new Cliente((int) id, nombre, correo, contrasena, fechaRegistro);
+        Cliente cliente = new Cliente((int) id, nombre, correo, PasswordUtil.hashear(contrasena), fechaRegistro);
         BASE_DATOS.put(id, cliente);
     }
 
@@ -35,6 +36,10 @@ public class ClienteDAO implements IClienteDAO {
         long id = CONTADOR_ID.getAndIncrement();
         cliente.setIdCliente((int) id);
         cliente.setFechaRegistro(LocalDate.now().toString());
+        // La contraseña se guarda siempre hasheada (si el llamador ya la hasheó, no se repite).
+        if (cliente.getContrasena() != null && !PasswordUtil.esHash(cliente.getContrasena())) {
+            cliente.setContrasena(PasswordUtil.hashear(cliente.getContrasena()));
+        }
         BASE_DATOS.put(id, cliente);
         return true;
     }
@@ -70,6 +75,11 @@ public class ClienteDAO implements IClienteDAO {
             return false;
         }
 
+        // Si el llamador cambió la contraseña en claro, se hashea antes de guardar.
+        if (cliente.getContrasena() != null && !PasswordUtil.esHash(cliente.getContrasena())) {
+            cliente.setContrasena(PasswordUtil.hashear(cliente.getContrasena()));
+        }
+
         // El objeto recibido suele ser la MISMA instancia guardada en el mapa, así que
         // ya trae el correo nuevo: hay que comparar contra los demás ids, no con
         // buscarPorCorreo (que devolvería el propio cliente y ocultaría el duplicado).
@@ -94,9 +104,9 @@ public class ClienteDAO implements IClienteDAO {
     @Override
     public Cliente validarLogin(String correo, String contrasena) {
         Cliente cliente = buscarPorCorreo(correo);
-        if (cliente == null) {
+        if (cliente == null || contrasena == null) {
             return null;
         }
-        return cliente.getContrasena() != null && cliente.getContrasena().equals(contrasena) ? cliente : null;
+        return PasswordUtil.verificar(contrasena, cliente.getContrasena()) ? cliente : null;
     }
 }

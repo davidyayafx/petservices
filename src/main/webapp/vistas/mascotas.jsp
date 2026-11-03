@@ -86,6 +86,7 @@
             <div class="card-body">
                 <form action="<%= request.getContextPath() %>/mascotas" method="post">
                     <input type="hidden" name="accion" value="<%= editando ? "actualizar" : "crear" %>">
+                    <input type="hidden" name="csrfToken" value="<%= csrfToken(session) %>">
                     <% if (editando) { %>
                         <input type="hidden" name="id" value="<%= mascotaEditar.getIdMascota() %>">
                     <% } %>

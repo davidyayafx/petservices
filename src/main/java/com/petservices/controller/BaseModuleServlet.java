@@ -5,6 +5,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import com.petservices.util.CsrfUtil;
 import java.io.IOException;
 
 /**
@@ -36,6 +37,19 @@ abstract class BaseModuleServlet extends HttpServlet {
     protected void forward(HttpServletRequest request, HttpServletResponse response, String ruta)
             throws ServletException, IOException {
         request.getRequestDispatcher(ruta).forward(request, response);
+    }
+
+    /**
+     * Valida el token CSRF de los POST del panel. Si no es válido responde 403.
+     *
+     * @return {@code false} si ya se envió la respuesta.
+     */
+    protected boolean validarCsrf(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        if (CsrfUtil.valido(request)) {
+            return true;
+        }
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token CSRF inválido o ausente.");
+        return false;
     }
 
     /** Devuelve el texto sin espacios sobrantes; null se convierte en "". */

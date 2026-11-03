@@ -60,19 +60,6 @@ public class ServicioServlet extends BaseModuleServlet {
                 cargarListaYForwardear(request, response);
                 break;
 
-            case "eliminar":
-                int idEliminar = parseInt(request.getParameter("id"), -1);
-                boolean eliminado = servicioDAO.eliminar(idEliminar);
-                if (eliminado) {
-                    request.setAttribute("mensaje", "✅ Servicio eliminado correctamente.");
-                    request.setAttribute("tipoMensaje", "exito");
-                } else {
-                    request.setAttribute("mensaje", "❌ No se encontró el servicio.");
-                    request.setAttribute("tipoMensaje", "error");
-                }
-                cargarListaYForwardear(request, response);
-                break;
-
             case "listar":
             default:
                 cargarListaYForwardear(request, response);
@@ -92,8 +79,27 @@ public class ServicioServlet extends BaseModuleServlet {
             return;
         }
 
+        if (!validarCsrf(request, response)) {
+            return;
+        }
+
         request.setCharacterEncoding("UTF-8");
         String accion = request.getParameter("accion");
+
+        // ── Eliminar (ahora por POST, con token CSRF) ────────────────────
+        if ("eliminar".equalsIgnoreCase(accion)) {
+            int idEliminar = parseInt(request.getParameter("id"), -1);
+            boolean eliminado = servicioDAO.eliminar(idEliminar);
+            if (eliminado) {
+                request.setAttribute("mensaje", "✅ Servicio eliminado correctamente.");
+                request.setAttribute("tipoMensaje", "exito");
+            } else {
+                request.setAttribute("mensaje", "❌ No se encontró el servicio.");
+                request.setAttribute("tipoMensaje", "error");
+            }
+            cargarListaYForwardear(request, response);
+            return;
+        }
 
         // ── Leer y validar los campos comunes ────────────────────────────
         String tipo   = limpiar(request.getParameter("tipo"));

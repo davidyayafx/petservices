@@ -127,14 +127,16 @@ Métodos, cuerpos JSON, filtros y códigos de estado en
 
 Notas del contrato vigente:
 
-- Las respuestas **no incluyen** `contrasena`.
+- **Autenticación:** `POST /api/auth/login` devuelve un `token`; el resto de rutas exigen
+  `Authorization: Bearer <token>` (8 h de vigencia). `POST /api/auth/logout` lo revoca.
+- Las respuestas **no incluyen** `contrasena`; se guarda hasheada con PBKDF2.
 - Cuerpo vacío o JSON mal formado → `400`.
 - `POST /api/citas` acepta `fecha` + `hora` o `fechaHora`.
 - El estado de una cita se acepta en cualquier caja y se guarda canónico
   (`Pendiente`, `Confirmada`, `Cancelada`, `Completada`).
 - Un `PUT` parcial conserva los campos no enviados (incluida la hora).
 
-Prueba rápida:
+Prueba rápida (hace login y prueba los 14 casos):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\probar_api.ps1
@@ -218,9 +220,9 @@ Arquitectura detallada en [`../DOCUMENTACION/ARQUITECTURA.md`](../DOCUMENTACION/
 
 - **Datos en memoria**: se reinician con las semillas (3 clientes, 4 mascotas, 4 citas,
   3 servicios, 4 productos, 3 establecimientos, 2 pedidos).
-- **Contraseñas en texto plano** y **API sin autenticación**; sí se dejó de exponer `contrasena`.
-- **Sin pruebas unitarias** (`src/test` no existe); la verificación es `probar_api.ps1` (10 casos).
-- **Borrado por GET** en clientes y servicios (riesgo CSRF).
+- **La API exige token Bearer**; las contraseñas se guardan con PBKDF2-HMAC-SHA256.
+- **Sin pruebas unitarias** (`src/test` no existe); la verificación es `probar_api.ps1` (14 casos).
+- Los borrados del panel van por **POST con token CSRF** (ya no por GET).
 - Los pedidos **no descuentan stock**.
 - `desplegar_tomcat.ps1 -Accion Detener` necesita `CATALINA_HOME` (ver Instalación).
 

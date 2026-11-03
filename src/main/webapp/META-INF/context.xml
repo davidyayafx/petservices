@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  context.xml — Configuración del contexto para Tomcat 9.
+  ──────────────────────────────────────────────────────
+  Marca las cookies de sesión como SameSite=Lax (además de HttpOnly,
+  configurado en WEB-INF/web.xml). Requiere Tomcat 9.0.21 o superior.
+
+  Proyecto: PetServices - SENA
+-->
+<Context>
+    <CookieProcessor sameSiteCookies="lax" />
+</Context>

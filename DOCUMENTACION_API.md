@@ -22,9 +22,21 @@ los servlets ni los modelos.
 | `200 OK` | Operación de lectura, actualización o eliminación exitosa |
 | `201 Created` | Recurso creado correctamente |
 | `400 Bad Request` | Faltan campos obligatorios o el valor enviado no es válido |
-| `401 Unauthorized` | Credenciales de login incorrectas |
+| `401 Unauthorized` | Credenciales incorrectas, o falta el token / no es válido |
 | `404 Not Found` | El recurso solicitado (por id) no existe |
 | `409 Conflict` | Violación de una regla de unicidad (ej. correo duplicado) |
+
+### Autenticación obligatoria
+
+**Todas** las rutas `/api/*` exigen la cabecera:
+
+```
+Authorization: Bearer <token>
+```
+
+La única excepción es `POST /api/auth/login`, que es público y devuelve el token.
+Sin cabecera, o con un token inválido/caducado, la respuesta es `401 Unauthorized` con
+`WWW-Authenticate: Bearer`. Los tokens duran **8 horas** y se pierden al reiniciar Tomcat.
 
 Formato de error homogéneo:
 ```json
@@ -47,7 +59,8 @@ responde `404 Not Found` con `{ "error": "El id de la URL debe ser un número en
 ## 1. Autenticación — `/api/auth`
 
 ### POST /api/auth/login
-Valida credenciales y retorna el cliente autenticado.
+Valida credenciales y retorna los datos del cliente **más el token** de acceso.
+Es la única ruta pública.
 
 **Body:**
 ```json
@@ -55,9 +68,29 @@ Valida credenciales y retorna el cliente autenticado.
 ```
 **Respuesta 200:**
 ```json
-{ "idCliente": 1, "nombre": "Alejandro Puerto", "correo": "alejandro@gmail.com", "fechaRegistro": "2026-01-15" }
+{
+  "idCliente": 1,
+  "nombre": "Alejandro Puerto",
+  "correo": "alejandro@gmail.com",
+  "fechaRegistro": "2026-01-15",
+  "token": "3fK9... (32 bytes en Base64 URL-safe)"
+}
 ```
 **Respuesta 401:** `{ "error": "Correo o contraseña incorrectos" }`
+
+**Uso del token:**
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/petservices/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"correo":"alejandro@gmail.com","contrasena":"123456"}' | jq -r .token)
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/petservices/api/clientes
+```
+
+### POST /api/auth/logout
+Invalida el token enviado en `Authorization` (requiere token válido).
+
+**Respuesta 200:** `{ "mensaje": "Sesión cerrada correctamente" }`
 
 ---
 

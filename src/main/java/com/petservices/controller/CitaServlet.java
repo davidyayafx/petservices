@@ -73,6 +73,14 @@ public class CitaServlet extends BaseModuleServlet {
             return;
         }
 
+        if (!validarSesion(request, response)) {
+            return;
+        }
+
+        if (!validarCsrf(request, response)) {
+            return;
+        }
+
         request.setCharacterEncoding("UTF-8");
         prepararCabecera(request);
         String accion = request.getParameter("accion");

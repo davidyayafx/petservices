@@ -53,6 +53,10 @@ public class ProductoServlet extends BaseModuleServlet {
             return;
         }
 
+        if (!validarCsrf(request, response)) {
+            return;
+        }
+
         request.setCharacterEncoding("UTF-8");
         prepararCabecera(request);
         String accion = request.getParameter("accion");

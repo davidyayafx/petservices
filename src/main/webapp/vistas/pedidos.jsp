@@ -146,6 +146,7 @@
             <div class="card-body">
                 <form action="<%= request.getContextPath() %>/pedidos" method="post" onsubmit="return validarPedidoForm(this)">
                     <input type="hidden" name="accion" value="<%= editando ? "actualizar" : "crear" %>">
+                    <input type="hidden" name="csrfToken" value="<%= csrfToken(session) %>">
                     <% if (editando) { %>
                         <input type="hidden" name="id" value="<%= pedidoEditar.getIdPedido() %>">
                     <% } %>
@@ -302,6 +303,7 @@
                                     <a href="<%= request.getContextPath() %>/pedidos?accion=editar&id=<%= p.getIdPedido() %>" class="btn btn-sm">Editar</a>
                                     <form method="post" action="<%= request.getContextPath() %>/pedidos" onsubmit="return confirm('¿Marcar el pedido #<%= p.getIdPedido() %> como pagado?')">
                                         <input type="hidden" name="accion" value="actualizar">
+        <input type="hidden" name="csrfToken" value="<%= csrfToken(session) %>">
                                         <input type="hidden" name="id" value="<%= p.getIdPedido() %>">
                                         <input type="hidden" name="idCliente" value="<%= p.getIdCliente() %>">
                                         <input type="hidden" name="idProducto" value="<%= p.getDetalles().isEmpty() ? 0 : p.getDetalles().get(0).getIdProducto() %>">

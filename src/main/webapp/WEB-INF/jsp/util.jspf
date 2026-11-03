@@ -50,4 +50,9 @@
         }
         return "badge-warning";
     }
+
+    /** Token CSRF de la sesión para los formularios del panel. */
+    private String csrfToken(javax.servlet.http.HttpSession sesion) {
+        return com.petservices.util.CsrfUtil.token(sesion);
+    }
 %>

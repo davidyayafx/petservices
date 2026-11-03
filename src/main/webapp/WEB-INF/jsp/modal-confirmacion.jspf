@@ -23,6 +23,7 @@
 <form id="formConfirmarAccion" method="post" action="<%= modalAccion %>" hidden>
     <input type="hidden" name="accion" value="eliminar">
     <input type="hidden" name="id" id="confirmarAccionId" value="">
+    <input type="hidden" name="csrfToken" value="<%= csrfToken(session) %>">
 </form>
 <% } %>
 

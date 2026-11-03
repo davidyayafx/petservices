@@ -2,6 +2,7 @@ package com.petservices.servlet;
 
 import com.petservices.dao.ClienteDAO;
 import com.petservices.modelo.Cliente;
+import com.petservices.util.CsrfUtil;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -72,20 +73,6 @@ public class ClienteServlet extends HttpServlet {
                 cargarListaYForwardear(request, response);
                 break;
 
-            case "eliminar":
-                // Eliminar el cliente con el id especificado
-                int idEliminar = parseId(request.getParameter("id"));
-                boolean eliminado = clienteDAO.eliminar(idEliminar);
-                if (eliminado) {
-                    request.setAttribute("mensaje", "✅ Cliente eliminado correctamente.");
-                    request.setAttribute("tipoMensaje", "exito");
-                } else {
-                    request.setAttribute("mensaje", "❌ No se encontró el cliente.");
-                    request.setAttribute("tipoMensaje", "error");
-                }
-                cargarListaYForwardear(request, response);
-                break;
-
             case "listar":
             default:
                 cargarListaYForwardear(request, response);
@@ -107,10 +94,28 @@ public class ClienteServlet extends HttpServlet {
             return;
         }
 
+        // Todo POST del panel exige el token CSRF de la sesión.
+        if (!CsrfUtil.valido(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token CSRF inválido o ausente.");
+            return;
+        }
+
         request.setCharacterEncoding("UTF-8");
         String accion = request.getParameter("accion");
 
-        if ("crear".equals(accion)) {
+        if ("eliminar".equals(accion)) {
+            // ── ELIMINAR cliente (antes se hacía por GET) ─────────────────
+            int idEliminar = parseId(request.getParameter("id"));
+            boolean eliminado = clienteDAO.eliminar(idEliminar);
+            if (eliminado) {
+                request.setAttribute("mensaje", "✅ Cliente eliminado correctamente.");
+                request.setAttribute("tipoMensaje", "exito");
+            } else {
+                request.setAttribute("mensaje", "❌ No se encontró el cliente.");
+                request.setAttribute("tipoMensaje", "error");
+            }
+
+        } else if ("crear".equals(accion)) {
             // ── CREAR nuevo cliente ──────────────────────────────────────
             String nombre    = request.getParameter("nombre");
             String correo    = request.getParameter("correo");

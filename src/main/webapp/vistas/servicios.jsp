@@ -77,6 +77,7 @@
             <div class="card-body">
                 <form action="<%= request.getContextPath() %>/servicios" method="post">
                     <input type="hidden" name="accion" value="<%= editando ? "actualizar" : "crear" %>">
+                    <input type="hidden" name="csrfToken" value="<%= csrfToken(session) %>">
                     <% if (editando) { %>
                         <input type="hidden" name="id" value="<%= servicioEditar.getIdServicio() %>">
                     <% } %>
@@ -183,13 +184,13 @@
 
     <%
         // ── Modal compartido (WEB-INF/jsp/modal-confirmacion.jspf) ──
-        // Este módulo elimina por enlace GET, por eso modalEnlace = true.
+        // Desde PETIMPROVE F2 el borrado va por POST con token CSRF.
         String  modalTitulo   = "Confirmar eliminación";
         String  modalTexto    = "¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.";
         String  modalBoton    = "Eliminar";
         String  modalCancelar = "Cancelar";
         String  modalAccion   = request.getContextPath() + "/servicios";
-        boolean modalEnlace   = true;
+        boolean modalEnlace   = false;
     %>
     <%@ include file="/WEB-INF/jsp/modal-confirmacion.jspf" %>
 
@@ -198,8 +199,9 @@
 <%@ include file="/WEB-INF/jsp/scripts.jspf" %>
 <script>
     function confirmarEliminar(id, nombre) {
-        var url = '<%= request.getContextPath() %>/servicios?accion=eliminar&id=' + id;
-        abrirModalConfirmacion('¿Estás seguro de que deseas eliminar el servicio "' + nombre + '" del catálogo de la veterinaria?', url);
+        var campoId = document.getElementById('confirmarAccionId');
+        if (campoId) campoId.value = id;
+        abrirModalConfirmacion('¿Estás seguro de que deseas eliminar el servicio "' + nombre + '" del catálogo de la veterinaria?');
     }
 </script>
 
