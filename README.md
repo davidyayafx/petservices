@@ -1,21 +1,116 @@
 # 🐾 PetServices (PetConnect) — SENA 
 
-Proyecto web Java con **Servlets + JSP** para las evidencias de competencia del SENA
-(ficha 3186628). Implementa la gestión de clientes (interfaz web) y, a partir de la
-evidencia AA5-EV03, una **API REST en JSON** que expone las operaciones sobre todas
-las entidades del modelo físico `petconnect_completo.sql`.
+Aplicación web Java (**Servlets 4.0 + JSP**) con **API REST JSON**, empaquetada como
+`petservices.war` para **Apache Tomcat 9**. Gestiona clientes, mascotas, citas, servicios,
+productos y pedidos de una clínica veterinaria / petshop.
 
 | Evidencia | Contenido |
 |---|---|
 | **AA2-EV02** | Módulo web (Servlets + JSP): registro, login y CRUD de clientes |
-| **AA5-EV03** | Diseño y codificación de los **servicios web (API REST)** del proyecto — ver [`DOCUMENTACION_API.md`](./DOCUMENTACION_API.md) |
-| **AA7-EV01** | Unión de anexos (Dashboard, Servicios, páginas de error), pruebas funcionales y despliegue — informe GA10-220501097-AA7-EV01 |
+| **AA5-EV03** | Servicios web REST en JSON — ver [`DOCUMENTACION_API.md`](./DOCUMENTACION_API.md) |
+| **AA7-EV01** | Unión de anexos (dashboard, servicios, páginas de error), pruebas y despliegue |
+
+> Documentación general del repositorio: [`../README.md`](../README.md) y
+> [`../DOCUMENTACION/`](../DOCUMENTACION/).
 
 ---
 
-## 🌐 API REST (AA5-EV03)
+## Requisitos
 
-8 servicios REST en JSON bajo `/api`, uno por entidad del modelo físico, más el login por API:
+| Componente | Versión | Nota |
+|---|---|---|
+| JDK | 11+ (probado con 21 y 26) | `source/target 11` |
+| Maven | 3.9.16 | **No está en el PATH**: usar `..\herramientas\apache-maven\bin\mvn.cmd` |
+| Tomcat | 9.x | Portátil en `..\herramientas\tomcat9` (puerto 8080) |
+
+No hace falta instalar Maven ni Tomcat: están en `herramientas/`, junto al proyecto.
+
+---
+
+## Build y despliegue
+
+### 1. Compilar el WAR
+
+```powershell
+cd petservices
+..\herramientas\apache-maven\bin\mvn.cmd -o clean package
+```
+
+Salida: `target/petservices.war` (~647 KB).
+`-o` compila en modo offline con el repositorio local ya descargado.
+
+O bien, desde la raíz del repositorio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\compilar_war.ps1 -Limpiar
+```
+
+### 2. Desplegar en Tomcat
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\desplegar_tomcat.ps1
+```
+
+Copia el WAR a `herramientas/tomcat9/webapps`, arranca Tomcat y espera a que responda
+`http://localhost:8080/petservices/login`.
+
+Detener:
+
+```powershell
+$env:CATALINA_HOME = "C:\Users\USER\Documents\Proyectos PROGRAMACION\proyecto grupo SENA\herramientas\tomcat9"
+$env:CATALINA_BASE = $env:CATALINA_HOME
+& "$env:CATALINA_HOME\bin\shutdown.bat"
+```
+
+> Los `.bat` `desplegar.bat` e `iniciar-local.bat` asumen `mvn` en el PATH; en este equipo
+> no está, así que use los scripts de PowerShell.
+
+### 3. Alternativa: plugin Maven embebido
+
+```powershell
+..\herramientas\apache-maven\bin\mvn.cmd tomcat7:run -Dapp.port=8081
+# http://localhost:8081/petservices/login
+```
+
+Detalle completo (despliegue limpio, configuración y problemas frecuentes) en
+[`../DOCUMENTACION/INSTALACION.md`](../DOCUMENTACION/INSTALACION.md).
+
+---
+
+## Cuentas de prueba
+
+Datos en memoria que se recrean en cada arranque:
+
+| Correo | Contraseña |
+|---|---|
+| `alejandro@gmail.com` | `123456` |
+| `daniel@gmail.com` | `123456` |
+| `david@gmail.com` | `123456` |
+
+> El registro público (`/registro`) tiene un defecto conocido (ver *Limitaciones*); use estas
+> cuentas o `POST /api/clientes`.
+
+---
+
+## URLs del módulo
+
+| URL (`http://localhost:8080/petservices/…`) | Descripción |
+|---|---|
+| `/` | Redirige a login o al dashboard si hay sesión |
+| `/login` · `/registro` | Acceso y creación de cuenta |
+| `/dashboard` | KPIs y últimas 5 citas |
+| `/clientes` | CRUD de clientes |
+| `/mascotas` | CRUD de mascotas (vista pasaporte y tabla) |
+| `/citas` | CRUD de citas |
+| `/servicios` | CRUD del catálogo de servicios |
+| `/productos` | CRUD de productos |
+| `/pedidos` | CRUD de pedidos |
+| `/logout` | Cierre de sesión |
+| `/api/…` | API REST (ver abajo) |
+
+---
+
+## API REST
 
 | Recurso | Ruta base | Servlet |
 |---|---|---|
@@ -28,273 +123,120 @@ las entidades del modelo físico `petconnect_completo.sql`.
 | Productos | `/api/productos` | `ProductoApiServlet` |
 | Pedidos | `/api/pedidos` | `PedidoApiServlet` |
 
-Documentación completa de cada endpoint (métodos, cuerpos de petición, códigos de
-estado y ejemplos con cURL) en **[`DOCUMENTACION_API.md`](./DOCUMENTACION_API.md)**.
+Métodos, cuerpos JSON, filtros y códigos de estado en
+**[`DOCUMENTACION_API.md`](./DOCUMENTACION_API.md)**.
 
----
+Notas del contrato vigente:
 
-## 📁 Estructura del Proyecto
+- Las respuestas **no incluyen** `contrasena`.
+- Cuerpo vacío o JSON mal formado → `400`.
+- `POST /api/citas` acepta `fecha` + `hora` o `fechaHora`.
+- El estado de una cita se acepta en cualquier caja y se guarda canónico
+  (`Pendiente`, `Confirmada`, `Cancelada`, `Completada`).
+- Un `PUT` parcial conserva los campos no enviados (incluida la hora).
 
-```
-petservices/                              ← Raíz del proyecto Maven
-│
-├── pom.xml                               ← Configuración Maven (dependencias + plugin Tomcat)
-├── desplegar.bat                         ← Script de build y verificación
-├── iniciar-local.bat                     ← Arranque rápido con mvn tomcat7:run
-└── src/
-    └── main/
-        │
-        ├── java/com/petservices/         ← Código fuente Java
-        │   ├── modelo/                   ← Entidades JavaBean del modelo físico
-        │   │   ├── Cliente.java
-        │   │   ├── Mascota.java
-        │   │   ├── Establecimiento.java
-        │   │   ├── Servicio.java
-        │   │   ├── Cita.java
-        │   │   ├── Producto.java
-        │   │   └── Pedido.java
-        │   ├── dao/                      ← Acceso a datos (simulado en RAM, 1 DAO por entidad)
-        │   │   ├── ClienteDAO.java
-        │   │   ├── MascotaDAO.java
-        │   │   ├── EstablecimientoDAO.java
-        │   │   ├── ServicioDAO.java
-        │   │   ├── CitaDAO.java
-        │   │   ├── ProductoDAO.java
-        │   │   └── PedidoDAO.java
-        │   ├── servlet/                  ← Controladores web (JSP), evidencia AA2-EV02
-        │   │   ├── RegistroServlet.java  ← Controlador: /registro
-        │   │   ├── LoginServlet.java     ← Controlador: /login
-        │   │   ├── ClienteServlet.java   ← Controlador: /clientes (CRUD)
-        │   │   └── LogoutServlet.java    ← Controlador: /logout
-        │   ├── controller/               ← Controladores CRUD web (AA7-EV01)
-        │   │   ├── BaseModuleServlet.java    ← Base común (validación sesión, helpers)
-        │   │   ├── DashboardServlet.java     ← Controlador: /dashboard (KPIs)
-        │   │   ├── MascotaServlet.java       ← Controlador: /mascotas (CRUD)
-        │   │   ├── CitaServlet.java          ← Controlador: /citas (CRUD)
-        │   │   ├── ServicioServlet.java      ← Controlador: /servicios (CRUD)
-        │   │   ├── ProductoServlet.java      ← Controlador: /productos (CRUD)
-        │   │   └── PedidoServlet.java        ← Controlador: /pedidos (CRUD)
-        │   └── api/                      ← Servicios REST JSON, evidencia AA5-EV03
-        │       ├── util/ApiUtil.java     ← JSON, lectura de body, extracción de id
-        │       ├── AuthApiServlet.java       → /api/auth/login
-        │       ├── ClienteApiServlet.java    → /api/clientes
-        │       ├── MascotaApiServlet.java    → /api/mascotas
-        │       ├── EstablecimientoApiServlet.java → /api/establecimientos
-        │       ├── ServicioApiServlet.java   → /api/servicios
-        │       ├── CitaApiServlet.java       → /api/citas
-        │       ├── ProductoApiServlet.java   → /api/productos
-        │       └── PedidoApiServlet.java     → /api/pedidos
-        │
-        └── webapp/                       ← Recursos web (WEB-INF, JSPs, CSS)
-            ├── index.jsp                 ← Redirección automática
-            ├── vistas/
-            │   ├── registro.jsp          ← Formulario de registro
-            │   ├── login.jsp             ← Formulario de inicio de sesión
-            │   ├── dashboard.jsp         ← Dashboard con KPIs y últimas citas
-            │   ├── clientes.jsp          ← Panel CRUD de gestión
-            │   ├── mascotas.jsp          ← Panel CRUD mascotas
-            │   ├── citas.jsp             ← Panel CRUD citas
-            │   ├── servicios.jsp         ← Panel CRUD servicios
-            │   ├── productos.jsp         ← Panel CRUD productos
-            │   ├── pedidos.jsp           ← Panel CRUD pedidos
-            │   ├── error404.jsp          ← Página 404 personalizada
-            │   └── error500.jsp          ← Página 500 personalizada
-            └── WEB-INF/
-                └── web.xml               ← Descriptor de despliegue
+Prueba rápida:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\probar_api.ps1
 ```
 
 ---
 
-## 🚀 Cómo ejecutar en Tomcat
+## Estructura
 
-### Opción A — Eclipse / IntelliJ con Tomcat integrado
-1. Importar como **Maven Project**
-2. Configurar un servidor **Apache Tomcat 9.x** en el IDE
-3. Click derecho → **Run on Server**
-4. Abrir: `http://localhost:8080/petservices/`
-
-### Opción B — Maven + Tomcat manual
-```bash
-# Compilar y empacar
-mvn clean package
-
-# El archivo .war quedará en: target/petservices.war
-# Copiarlo a: TOMCAT_HOME/webapps/petservices.war
-# Iniciar Tomcat: TOMCAT_HOME/bin/startup.sh (Linux) o startup.bat (Windows)
+```
+petservices/
+├── pom.xml                        ← Maven: WAR, finalName, dependencias, plugin Tomcat
+├── desplegar.bat                  ← Build + verificación del WAR (requiere mvn en PATH)
+├── iniciar-local.bat              ← mvn tomcat7:run en el puerto 8081
+├── DOCUMENTACION_API.md           ← Contrato de la API (única copia vigente)
+├── postman/                       ← Colección y entorno de Postman
+└── src/main/
+    ├── java/com/petservices/
+    │   ├── modelo/                ← JavaBeans del modelo (8 clases)
+    │   ├── dao/                   ← 7 DAO + 7 interfaces I*DAO (memoria, hilos-seguro)
+    │   ├── servlet/               ← Registro, Login, Logout, Cliente
+    │   ├── controller/            ← BaseModuleServlet + Dashboard + 6 CRUD
+    │   └── api/                   ← 7 *ApiServlet + AuthApiServlet + util/ApiUtil
+    └── webapp/
+        ├── index.jsp
+        ├── vistas/                ← login, registro, dashboard, 6 CRUD, error404/500
+        ├── css/app.css
+        └── WEB-INF/
+            ├── web.xml            ← welcome-file, sesión 30 min, páginas de error
+            └── jsp/               ← head, sidebar, scripts, util, modal-confirmacion
 ```
 
-### Cuentas de prueba (precargadas en memoria)
-| Correo                    | Contraseña |
-|---------------------------|-----------|
-| alejandro@gmail.com       | 123456    |
-| daniel@gmail.com          | 123456    |
-| david@gmail.com           | 123456    |
+Arquitectura detallada en [`../DOCUMENTACION/ARQUITECTURA.md`](../DOCUMENTACION/ARQUITECTURA.md).
 
 ---
 
-## 🌐 URLs del módulo
+## Métodos HTTP implementados
 
-| URL                                 | Descripción                      |
-|-------------------------------------|----------------------------------|
-| `http://localhost:8080/petservices/`        | Redirige al login automáticamente |
-| `http://localhost:8080/petservices/login`   | Formulario de inicio de sesión   |
-| `http://localhost:8080/petservices/registro`| Formulario de registro           |
-| `http://localhost:8080/petservices/dashboard`| Dashboard con KPIs y últimas citas (requiere sesión) |
-| `http://localhost:8080/petservices/clientes`| Panel CRUD clientes (requiere sesión)     |
-| `http://localhost:8080/petservices/mascotas`| Panel CRUD mascotas (requiere sesión)     |
-| `http://localhost:8080/petservices/citas`   | Panel CRUD citas (requiere sesión)        |
-| `http://localhost:8080/petservices/servicios`| Panel CRUD servicios (requiere sesión)    |
-| `http://localhost:8080/petservices/productos`| Panel CRUD productos (requiere sesión)    |
-| `http://localhost:8080/petservices/pedidos` | Panel CRUD pedidos (requiere sesión)      |
-| `http://localhost:8080/petservices/logout`  | Cierre de sesión                 |
+### Panel web (JSP)
 
----
+| Servlet | `doGet` | `doPost` |
+|---|---|---|
+| `RegistroServlet` | Formulario de registro | Crear cliente |
+| `LoginServlet` | Formulario de login | Validar y abrir sesión |
+| `DashboardServlet` | KPIs + últimas citas | — |
+| `ClienteServlet` | Listar, editar, eliminar | Crear, actualizar |
+| `MascotaServlet` | Listar, editar | Crear, actualizar, eliminar |
+| `CitaServlet` | Listar, editar | Crear, actualizar, eliminar |
+| `ServicioServlet` | Listar, editar, eliminar | Crear, actualizar |
+| `ProductoServlet` | Listar, editar | Crear, actualizar, eliminar |
+| `PedidoServlet` | Listar, editar | Crear, actualizar, eliminar |
+| `LogoutServlet` | Invalidar sesión | — |
 
-## 🔄 Flujo de la aplicación
+### API REST
 
-```
-index.jsp
-    ↓ (sin sesión)
-login.jsp  ←──────────────── logout
-    ↓ (doPost: validar)
-LoginServlet
-    ↓ (sesión creada)
-ClienteServlet (doGet: listar)
-    ↓
-clientes.jsp
-    ├── Crear  → doPost accion=crear
-    ├── Editar → doGet  accion=editar → doPost accion=actualizar
-    └── Borrar → doGet  accion=eliminar
-```
-
----
-
-## 📋 Métodos HTTP implementados
-
-### Módulo web (JSP) — AA2-EV02 + AA7-EV01
-
-| Servlet           | doGet                              | doPost                         |
-|-------------------|------------------------------------|-------------------------------|
-| RegistroServlet   | Cargar formulario vacío            | Procesar y guardar nuevo cliente |
-| LoginServlet      | Cargar formulario de login         | Validar credenciales, crear sesión |
-| DashboardServlet  | Mostrar KPIs y últimas 5 citas     | —                              |
-| ClienteServlet    | Listar, cargar edición, eliminar   | Crear cliente, actualizar cliente |
-| MascotaServlet    | Listar, cargar edición, eliminar   | Crear mascota, actualizar mascota |
-| CitaServlet       | Listar, cargar edición, eliminar   | Crear cita, actualizar cita    |
-| ServicioServlet   | Listar, cargar edición, eliminar   | Crear servicio, actualizar servicio |
-| ProductoServlet   | Listar, cargar edición, eliminar   | Crear producto, actualizar producto |
-| PedidoServlet     | Listar, cargar edición, eliminar   | Crear pedido, actualizar pedido |
-| LogoutServlet     | Invalidar sesión, redirigir        | —                              |
-
-### API REST (JSON) — AA5-EV03
-
-| Servlet | doGet | doPost | doPut | doDelete |
+| Servlet | `GET` | `POST` | `PUT` | `DELETE` |
 |---|---|---|---|---|
-| AuthApiServlet | — | Validar login | — | — |
-| ClienteApiServlet | Listar / por id | Crear | Actualizar | Eliminar |
-| MascotaApiServlet | Listar / por id / por cliente | Crear | Actualizar | Eliminar |
-| EstablecimientoApiServlet | Listar / por id | Crear | Actualizar | Eliminar |
-| ServicioApiServlet | Listar / por id | Crear | Actualizar | Eliminar |
-| CitaApiServlet | Listar / por id / por estado | Crear (agendar) | Actualizar (fecha/hora/estado) | Cancelar |
-| ProductoApiServlet | Listar / por id / stock bajo | Crear | Actualizar | Eliminar |
-| PedidoApiServlet | Listar / por id | Crear | Actualizar | Eliminar |
-
-Detalle de rutas, cuerpos JSON y códigos de estado en [`DOCUMENTACION_API.md`](./DOCUMENTACION_API.md).
+| `AuthApiServlet` | — | Login | — | — |
+| `ClienteApiServlet` | Listar / por id | Crear | Actualizar | Eliminar |
+| `MascotaApiServlet` | Listar / por id / por cliente | Crear | Actualizar | Eliminar |
+| `EstablecimientoApiServlet` | Listar / por id | Crear | Actualizar | Eliminar |
+| `ServicioApiServlet` | Listar / por id | Crear | Actualizar | Eliminar |
+| `CitaApiServlet` | Listar / por id / por estado | Agendar | Actualizar | Eliminar |
+| `ProductoApiServlet` | Listar / por id / stock bajo | Crear | Actualizar | Eliminar |
+| `PedidoApiServlet` | Listar / por id | Crear | Actualizar | Eliminar |
 
 ---
 
-## 🔧 Tecnologías usadas
+## Tecnologías
 
-- **Java 11** — Lógica de negocio y Servlets
-- **javax.servlet 4.0** — API de Servlets
-- **JSP 2.3** — Vistas dinámicas (scriptlets, expresiones)
-- **Gson 2.10.1** — Serialización/deserialización JSON de los servicios REST (AA5-EV03)
-- **Apache Tomcat 9.x** — Servidor de aplicaciones
-- **Maven** — Gestión de dependencias
-- **Simulación DAO en RAM** — Sin necesidad de BD para la demo (estructurada para migrar a JDBC)
-
----
-
-## 💾 Comandos Git esenciales
-
-Este proyecto ya tiene repositorio Git inicializado desde la evidencia AA2-EV02
-(remoto: `https://github.com/SoyAbejo/Modulo-de-registro.git`). Para la evidencia
-AA5-EV03 solo se agregan los nuevos archivos y se sube un nuevo commit:
-
-```bash
-cd petservices
-
-# 1. Ver los archivos nuevos/modificados
-git status
-
-# 2. Agregar todo lo nuevo (modelos, DAOs, servicios REST, documentación)
-git add .
-
-# 3. Commit de la evidencia AA5-EV03
-git commit -m "feat: servicios web REST del proyecto - GA7-220501096-AA5-EV03
-
-- 8 servicios REST en JSON bajo /api (Cliente, Mascota, Establecimiento,
-  Servicio, Cita, Producto, Pedido, Auth)
-- Modelos JavaBean y DAO en memoria para cada entidad del modelo físico
-- ApiUtil: utilidades comunes de JSON, lectura de body y extracción de id
-- Gson agregado como dependencia Maven para (de)serialización JSON
-- DOCUMENTACION_API.md: documentación completa de cada endpoint"
-
-# 4. Subir el commit al repositorio remoto
-git push origin main
-```
-
-Para la evidencia **AA7-EV01** (unión de anexos, pruebas y despliegue):
-
-```bash
-# 1. Ver los archivos nuevos/modificados
-git status
-
-# 2. Agregar todo lo nuevo (Dashboard, Servicios, error pages, postman, scripts, pom, web.xml, README)
-git add .
-
-# 3. Commit de la evidencia AA7-EV01
-git commit -m "feat: unión de anexos + pruebas + despliegue - GA10-220501097-AA7-EV01
-
-- DashboardServlet + dashboard.jsp con KPIs y últimas citas
-- ServicioServlet + servicios.jsp (CRUD completo)
-- Páginas error404.jsp y error500.jsp con diseño propio
-- Colección Postman + environment en postman/
-- Scripts desplegar.bat e iniciar-local.bat
-- pom.xml: propiedades app.port/app.contextPath + plugin tomcat7-maven-plugin
-- web.xml: declaraciones explícitas de los 10 servlets web
-- README actualizado con nuevos módulos y URLs
-- LoginServlet redirige a /dashboard tras login exitoso"
-
-# 4. Subir el commit al repositorio remoto
-git push origin main
-```
-
-# ── Commits futuros (buenas prácticas) ──
-# git add .
-# git commit -m "fix: validación de estado en CitaApiServlet"
-# git push
-```
+- **Java 11** (compilado con JDK 21/26) — lógica y Servlets
+- **javax.servlet 4.0** + **JSP 2.3** — vistas renderizadas en servidor
+- **Gson 2.10.1** — (de)serialización JSON
+- **Apache Tomcat 9** — servidor de aplicaciones
+- **Maven 3.9** — build y dependencias
+- **DAO en memoria** (`ConcurrentHashMap`) — sin base de datos en la demo
 
 ---
 
-## 📦 Formato de entrega SENA — AA5-EV03
+## Limitaciones conocidas
 
-Estructura interna del ZIP entregado (nombre: `NOMBRE_APELLIDO_AA5_EV03.zip`):
+- **Datos en memoria**: se reinician con las semillas (3 clientes, 4 mascotas, 4 citas,
+  3 servicios, 4 productos, 3 establecimientos, 2 pedidos).
+- **`/registro` no crea cuentas** hoy (el JSP no envía el campo `confirmar` que exige el servlet).
+- **Contraseñas en texto plano** y **API sin autenticación**; sí se dejó de exponer `contrasena`.
+- **Sin pruebas unitarias** (`src/test` no existe); la verificación es `probar_api.ps1` (10 casos).
+- **Borrado por GET** en clientes y servicios (riesgo CSRF).
+- Los pedidos **no descuentan stock**.
+- `desplegar_tomcat.ps1 -Accion Detener` necesita `CATALINA_HOME` (ver Instalación).
 
-```
-ALEJANDRO_PUERTO_AA5_EV03/
-├── petservices/                  ← Proyecto completo (código fuente + API REST)
-├── DOCUMENTACION_API.md          ← Documentación de cada servicio
-└── enlace_repositorio.txt        ← URL del repositorio Git
-```
+Análisis completo y pendientes en
+[`../DOCUMENTACION/CAMBIOS_REALIZADOS.md`](../DOCUMENTACION/CAMBIOS_REALIZADOS.md) y
+[`../DOCUMENTACION/FUNCIONAMIENTO.md`](../DOCUMENTACION/FUNCIONAMIENTO.md).
 
 ---
 
-## 👨‍💻 Datos del proyecto
+## Datos del proyecto
 
 - **Sistema:** PetServices / PetConnect
 - **Ficha SENA:** 3186628
-- **Evidencias:** GA7-220501096-AA2-EV02 (módulo web), GA7-220501096-AA5-EV03 (servicios web / API REST) y GA10-220501097-AA7-EV01 (pruebas funcionales y despliegue)
+- **Evidencias:** GA7-220501096-AA2-EV02 · GA7-220501096-AA5-EV03 · GA10-220501097-AA7-EV01 · AA10-EV01 (manual técnico)
 - **Competencia:** Módulos de software codificados y probados
-- **Repositorio:** https://github.com/SoyAbejo/Modulo-de-registro
+- **Repositorio:** `https://github.com/davidyayafx/PetServices` (rama `main`)
+- **Manual técnico:** [`../documentacion_tecnica/README.md`](../documentacion_tecnica/README.md)
