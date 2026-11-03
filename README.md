@@ -27,6 +27,25 @@ No hace falta instalar Maven ni Tomcat: están en `herramientas/`, junto al proy
 
 ---
 
+## Paquete portable (sin instalar nada)
+
+Si solo necesitas **ver la aplicación funcionando**, no hace falta compilar ni configurar Tomcat:
+usa el paquete ya armado que está en **Releases**.
+
+**Descarga:** [`PetServices-Portable.zip` — v1.0.0](https://github.com/davidyayafx/petservices/releases/tag/v1.0.0) (13 MB)
+
+1. Descomprime el ZIP en una carpeta propia.
+2. Doble clic en `Iniciar-PetServices.bat` (requiere **Java 11+**; el lanzador avisa si falta).
+3. Se abre el navegador en `http://localhost:8080/petservices/login`.
+4. Para cerrar: `Detener-PetServices.bat`.
+
+Cuenta de prueba: `alejandro@gmail.com` / `123456` (también `daniel@gmail.com` y `david@gmail.com`).
+
+El paquete incluye Tomcat 9 portátil, el WAR compilado, el código fuente, el icono y un `LEEME.txt`.
+Para compilar desde el código, usa las secciones siguientes.
+
+---
+
 ## Build y despliegue
 
 ### 1. Compilar el WAR
