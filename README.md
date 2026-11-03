@@ -221,9 +221,10 @@ Arquitectura detallada en [`../DOCUMENTACION/ARQUITECTURA.md`](../DOCUMENTACION/
 - **Datos en memoria**: se reinician con las semillas (3 clientes, 4 mascotas, 4 citas,
   3 servicios, 4 productos, 3 establecimientos, 2 pedidos).
 - **La API exige token Bearer**; las contraseñas se guardan con PBKDF2-HMAC-SHA256.
-- **Sin pruebas unitarias** (`src/test` no existe); la verificación es `probar_api.ps1` (14 casos).
+- **Pruebas**: 31 unitarias (JUnit 5) + 14 casos de humo de API; ejecute
+  `..\documentacion_tecnica\scripts\verificar_todo.ps1`.
 - Los borrados del panel van por **POST con token CSRF** (ya no por GET).
-- Los pedidos **no descuentan stock**.
+- Los pedidos **descuentan stock** al crearse y lo devuelven al editarse o eliminarse.
 - `desplegar_tomcat.ps1 -Accion Detener` necesita `CATALINA_HOME` (ver Instalación).
 
 Análisis completo y pendientes en

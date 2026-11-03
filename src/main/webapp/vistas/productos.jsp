@@ -123,6 +123,13 @@
                         </div>
 
                         <div class="form-group">
+                            <label class="form-label" for="descripcion">Descripción (opcional)</label>
+                            <input class="form-control" type="text" id="descripcion" name="descripcion"
+                                   value="<%= editando && productoEditar.getDescripcion() != null ? esc(productoEditar.getDescripcion()) : "" %>"
+                                   placeholder="Ej: Bolsa de 3 kg, sabor pollo" maxlength="150">
+                        </div>
+
+                        <div class="form-group">
                             <label class="form-label" for="categoria">Categoría</label>
                             <% String catActual = editando ? productoEditar.getCategoria() : ""; %>
                             <select class="form-control" id="categoria" name="categoria" required>

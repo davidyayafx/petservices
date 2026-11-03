@@ -125,6 +125,7 @@ public class ProductoServlet extends BaseModuleServlet {
     private Producto construirProductoDesdeRequest(HttpServletRequest request, int idActual) {
         String nombre = limpiar(request.getParameter("nombre"));
         String categoria = limpiar(request.getParameter("categoria"));
+        String descripcion = limpiar(request.getParameter("descripcion"));
         double precio = parseDecimal(request.getParameter("precio"));
         int stock = parseInt(request.getParameter("stock"), -1);
 
@@ -145,7 +146,8 @@ public class ProductoServlet extends BaseModuleServlet {
 
         Producto producto = new Producto(idActual, nombre, categoria, precio, stock);
         producto.setCategoria(categoria);
-        producto.setDescripcion(categoria);
+        // Descripción real del formulario; si viene vacía se usa la categoría.
+        producto.setDescripcion(descripcion.isEmpty() ? categoria : descripcion);
         producto.setEstado(stock > 0 ? "disponible" : "agotado");
         return producto;
     }

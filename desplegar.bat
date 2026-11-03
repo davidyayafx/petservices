@@ -10,6 +10,10 @@ REM  versión vieja (causa del 404).
 REM ═══════════════════════════════════════════════════════════════════════
 cd /d "%~dp0"
 
+REM Maven portatil incluido en el repositorio; si no existe, usa el del PATH.
+set "MVN=mvn"
+if exist "..\herramientas\apache-maven\bin\mvn.cmd" set "MVN=..\herramientas\apache-maven\bin\mvn.cmd"
+
 echo.
 echo [1/4] Comprobando si hay un servidor activo en el puerto 8080...
 netstat -ano | findstr ":8080" | findstr "LISTENING" >nul 2>&1
@@ -28,7 +32,7 @@ if not errorlevel 1 (
 
 echo.
 echo [2/4] Limpiando builds anteriores (incluye la cache de Tomcat)...
-call mvn clean -q
+call "%MVN%" clean -q
 if errorlevel 1 (
     echo   [ERROR] No se pudo limpiar. Cierra el servidor e intenta de nuevo.
     pause
@@ -37,7 +41,7 @@ if errorlevel 1 (
 
 echo.
 echo [3/4] Compilando y empaquetando el WAR...
-call mvn package -q -DskipTests
+call "%MVN%" package -q -DskipTests
 if errorlevel 1 (
     echo   [ERROR] El build fallo. Revisa los errores de compilacion.
     pause

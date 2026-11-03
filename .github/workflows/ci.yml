@@ -1,0 +1,31 @@
+name: CI PetServices
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    name: Compilar y probar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Compilar, ejecutar pruebas y empaquetar
+        run: mvn -B test package
+
+      - name: Publicar el WAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: petservices-war
+          path: target/petservices.war
+          if-no-files-found: error
