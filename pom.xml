@@ -49,13 +49,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- ── JSTL (para uso futuro de etiquetas JSP estándar) ── -->
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>jstl</artifactId>
-            <version>1.2</version>
-        </dependency>
-
         <!--
           ── MySQL Connector/J (DESCOMENTA cuando integres la base de datos real)
           <dependency>

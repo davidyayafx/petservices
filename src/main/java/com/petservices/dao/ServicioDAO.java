@@ -3,53 +3,69 @@ package com.petservices.dao;
 import com.petservices.modelo.Servicio;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * DAO: ServicioDAO — simulación en memoria (misma estrategia que ClienteDAO).
+ * DAO: ServicioDAO — simulación en memoria sobre {@link ConcurrentHashMap},
+ * con la misma estrategia que ClienteDAO, MascotaDAO y CitaDAO
+ * (hilo-seguro e interfaz {@link IServicioDAO}).
  *
  * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
  */
-public class ServicioDAO {
+public class ServicioDAO implements IServicioDAO {
 
-    private static final List<Servicio> baseDatos  = new ArrayList<>();
-    private static final AtomicInteger   contadorId = new AtomicInteger(1);
+    private static final ConcurrentHashMap<Long, Servicio> BASE_DATOS = new ConcurrentHashMap<>();
+    private static final AtomicLong CONTADOR_ID = new AtomicLong(1);
 
     static {
-        baseDatos.add(new Servicio(contadorId.getAndIncrement(), "Consulta", "Vacunación antirrábica", null));
-        baseDatos.add(new Servicio(contadorId.getAndIncrement(), "Baño y corte", "Grooming completo", null));
-        baseDatos.add(new Servicio(contadorId.getAndIncrement(), "Cirugía", "Esterilización", null));
+        guardarDummy("Consulta", "Vacunación antirrábica", null);
+        guardarDummy("Baño y corte", "Grooming completo", null);
+        guardarDummy("Cirugía", "Esterilización", null);
     }
 
-    public boolean insertar(Servicio s) {
-        s.setIdServicio(contadorId.getAndIncrement());
-        baseDatos.add(s);
+    private static void guardarDummy(String tipo, String nombre, Integer idMascota) {
+        long id = CONTADOR_ID.getAndIncrement();
+        Servicio servicio = new Servicio((int) id, tipo, nombre, idMascota);
+        BASE_DATOS.put(id, servicio);
+    }
+
+    @Override
+    public boolean insertar(Servicio servicio) {
+        if (servicio == null) {
+            return false;
+        }
+        long id = CONTADOR_ID.getAndIncrement();
+        servicio.setIdServicio((int) id);
+        BASE_DATOS.put(id, servicio);
         return true;
     }
 
+    @Override
     public List<Servicio> listarTodos() {
-        return new ArrayList<>(baseDatos);
+        List<Servicio> lista = new ArrayList<>(BASE_DATOS.values());
+        lista.sort(Comparator.comparingInt(Servicio::getIdServicio));
+        return lista;
     }
 
+    @Override
     public Servicio buscarPorId(int id) {
-        for (Servicio s : baseDatos) {
-            if (s.getIdServicio() == id) return s;
-        }
-        return null;
+        return BASE_DATOS.get((long) id);
     }
 
-    public boolean actualizar(Servicio nuevo) {
-        for (int i = 0; i < baseDatos.size(); i++) {
-            if (baseDatos.get(i).getIdServicio() == nuevo.getIdServicio()) {
-                baseDatos.set(i, nuevo);
-                return true;
-            }
+    @Override
+    public boolean actualizar(Servicio servicio) {
+        if (servicio == null || !BASE_DATOS.containsKey((long) servicio.getIdServicio())) {
+            return false;
         }
-        return false;
+        BASE_DATOS.put((long) servicio.getIdServicio(), servicio);
+        return true;
     }
 
+    @Override
     public boolean eliminar(int id) {
-        return baseDatos.removeIf(s -> s.getIdServicio() == id);
+        return BASE_DATOS.remove((long) id) != null;
     }
 }

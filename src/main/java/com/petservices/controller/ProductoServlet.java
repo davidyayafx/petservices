@@ -31,16 +31,16 @@ public class ProductoServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
         if ("editar".equalsIgnoreCase(accion)) {
-            try {
-                int id = parseEntero(request.getParameter("id"));
+            int id = parseEntero(request.getParameter("id"));
+            if (id <= 0) {
+                enviarMensaje(request, "❌ El identificador del producto no es válido.", "error");
+            } else {
                 Producto producto = productoDAO.buscarPorId(id);
                 if (producto != null) {
                     request.setAttribute("productoEditar", producto);
                 } else {
                     enviarMensaje(request, "❌ El producto seleccionado no existe.", "error");
                 }
-            } catch (NumberFormatException ex) {
-                enviarMensaje(request, "❌ El identificador del producto no es válido.", "error");
             }
         }
 
@@ -57,16 +57,12 @@ public class ProductoServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
 
-        try {
-            if ("eliminar".equalsIgnoreCase(accion)) {
-                eliminarProducto(request);
-            } else if ("actualizar".equalsIgnoreCase(accion)) {
-                actualizarProducto(request);
-            } else {
-                guardarProducto(request);
-            }
-        } catch (NumberFormatException ex) {
-            enviarMensaje(request, "❌ Verifica el precio y el stock del producto.", "error");
+        if ("eliminar".equalsIgnoreCase(accion)) {
+            eliminarProducto(request);
+        } else if ("actualizar".equalsIgnoreCase(accion)) {
+            actualizarProducto(request);
+        } else {
+            guardarProducto(request);
         }
 
         cargarVista(request, response);
@@ -123,10 +119,10 @@ public class ProductoServlet extends BaseModuleServlet {
     }
 
     private Producto construirProductoDesdeRequest(HttpServletRequest request, int idActual) {
-        String nombre = texto(request.getParameter("nombre"));
-        String categoria = texto(request.getParameter("categoria"));
+        String nombre = limpiar(request.getParameter("nombre"));
+        String categoria = limpiar(request.getParameter("categoria"));
         double precio = parseDecimal(request.getParameter("precio"));
-        int stock = parseEntero(request.getParameter("stock"));
+        int stock = parseInt(request.getParameter("stock"), -1);
 
         if (nombre.isEmpty() || categoria.isEmpty()) {
             enviarMensaje(request, "❌ Nombre y categoría son obligatorios.", "error");
@@ -154,9 +150,5 @@ public class ProductoServlet extends BaseModuleServlet {
         List<Producto> productos = productoDAO.listarTodos();
         request.setAttribute("listaProductos", productos);
         request.getRequestDispatcher("/vistas/productos.jsp").forward(request, response);
-    }
-
-    private String texto(String valor) {
-        return valor == null ? "" : valor.trim();
     }
 }

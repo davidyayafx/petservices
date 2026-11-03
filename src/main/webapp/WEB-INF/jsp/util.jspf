@@ -1,0 +1,53 @@
+<%--
+  util.jspf — Funciones auxiliares compartidas por las vistas.
+  ─────────────────────────────────────────────────────────────
+  Se incluye con <%@ include file="/WEB-INF/jsp/util.jspf" %> (include estático),
+  así que sus métodos quedan disponibles en toda la página.
+
+  NO definir esc()/badgeEstadoClass()/mensajePlano() en las vistas: ya no deben
+  existir copias locales (eran el hallazgo M1/M2 de la auditoría).
+--%>
+<%@ page pageEncoding="UTF-8" %>
+<%!
+    /**
+     * Escapa un texto para insertarlo en HTML, tanto en contenido como en
+     * valores de atributos entre comillas. Cadena vacía si el valor es null.
+     */
+    private String esc(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        return valor
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
+    /**
+     * Devuelve el mensaje flash sin los emojis ✅/❌ iniciales que añaden los
+     * servlets, para que el texto quede limpio dentro de la alerta.
+     */
+    private String mensajePlano(String mensaje) {
+        if (mensaje == null) {
+            return "";
+        }
+        return mensaje.replaceAll("^[\\u2705\\u274C\\s]+", "");
+    }
+
+    /** Clase CSS del distintivo (badge) según el estado de una cita. */
+    private String badgeEstadoClass(String estado) {
+        String valor = (estado == null) ? "" : estado.trim().toLowerCase();
+        if ("confirmada".equals(valor)) {
+            return "badge-success";
+        }
+        if ("cancelada".equals(valor)) {
+            return "badge-danger";
+        }
+        if ("realizada".equals(valor) || "completada".equals(valor)) {
+            return "badge-success";
+        }
+        return "badge-warning";
+    }
+%>

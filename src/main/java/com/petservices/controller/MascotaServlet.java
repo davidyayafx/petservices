@@ -33,16 +33,16 @@ public class MascotaServlet extends BaseModuleServlet {
         }
 
         if ("editar".equalsIgnoreCase(accion)) {
-            try {
-                int id = parseEntero(request.getParameter("id"));
+            int id = parseEntero(request.getParameter("id"));
+            if (id <= 0) {
+                enviarMensaje(request, "❌ El identificador de la mascota no es válido.", "error");
+            } else {
                 Mascota mascota = mascotaDAO.buscarPorId(id);
                 if (mascota != null) {
                     request.setAttribute("mascotaEditar", mascota);
                 } else {
                     enviarMensaje(request, "❌ No se encontró la mascota seleccionada.", "error");
                 }
-            } catch (NumberFormatException ex) {
-                enviarMensaje(request, "❌ El identificador de la mascota no es válido.", "error");
             }
         }
 
@@ -59,26 +59,22 @@ public class MascotaServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
 
-        try {
-            if ("eliminar".equalsIgnoreCase(accion)) {
-                eliminarMascota(request);
-            } else if ("actualizar".equalsIgnoreCase(accion)) {
-                actualizarMascota(request);
-            } else {
-                guardarMascota(request);
-            }
-        } catch (NumberFormatException ex) {
-            enviarMensaje(request, "❌ Verifica la edad y el cliente seleccionado.", "error");
+        if ("eliminar".equalsIgnoreCase(accion)) {
+            eliminarMascota(request);
+        } else if ("actualizar".equalsIgnoreCase(accion)) {
+            actualizarMascota(request);
+        } else {
+            guardarMascota(request);
         }
 
         cargarVista(request, response);
     }
 
     private void guardarMascota(HttpServletRequest request) {
-        String nombre = obtenerTexto(request.getParameter("nombre"));
-        String especie = obtenerTexto(request.getParameter("especie"));
-        String raza = obtenerTexto(request.getParameter("raza"));
-        int edad = parseEntero(request.getParameter("edad"));
+        String nombre = limpiar(request.getParameter("nombre"));
+        String especie = limpiar(request.getParameter("especie"));
+        String raza = limpiar(request.getParameter("raza"));
+        int edad = parseInt(request.getParameter("edad"), -1);
         int idCliente = parseEntero(request.getParameter("idCliente"));
 
         if (nombre.isEmpty() || especie.isEmpty() || raza.isEmpty() || edad < 0 || idCliente <= 0) {
@@ -108,10 +104,10 @@ public class MascotaServlet extends BaseModuleServlet {
             return;
         }
 
-        String nombre = obtenerTexto(request.getParameter("nombre"));
-        String especie = obtenerTexto(request.getParameter("especie"));
-        String raza = obtenerTexto(request.getParameter("raza"));
-        int edad = parseEntero(request.getParameter("edad"));
+        String nombre = limpiar(request.getParameter("nombre"));
+        String especie = limpiar(request.getParameter("especie"));
+        String raza = limpiar(request.getParameter("raza"));
+        int edad = parseInt(request.getParameter("edad"), -1);
         int idCliente = parseEntero(request.getParameter("idCliente"));
 
         if (nombre.isEmpty() || especie.isEmpty() || raza.isEmpty() || edad < 0 || idCliente <= 0) {
@@ -162,9 +158,5 @@ public class MascotaServlet extends BaseModuleServlet {
         request.setAttribute("listaMascotas", mascotas);
         request.setAttribute("listaClientes", clientes);
         request.getRequestDispatcher("/vistas/mascotas.jsp").forward(request, response);
-    }
-
-    private String obtenerTexto(String valor) {
-        return valor == null ? "" : valor.trim();
     }
 }

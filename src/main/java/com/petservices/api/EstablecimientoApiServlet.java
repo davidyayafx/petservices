@@ -1,6 +1,7 @@
 package com.petservices.api;
 
 import com.petservices.dao.EstablecimientoDAO;
+import com.petservices.dao.IEstablecimientoDAO;
 import com.petservices.modelo.Establecimiento;
 
 import javax.servlet.annotation.WebServlet;
@@ -25,7 +26,7 @@ import static com.petservices.api.util.ApiUtil.*;
 @WebServlet("/api/establecimientos/*")
 public class EstablecimientoApiServlet extends HttpServlet {
 
-    private final EstablecimientoDAO establecimientoDAO = new EstablecimientoDAO();
+    private final IEstablecimientoDAO establecimientoDAO = new EstablecimientoDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -45,8 +46,12 @@ public class EstablecimientoApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Establecimiento nuevo = GSON.fromJson(leerBody(request), Establecimiento.class);
-        if (nuevo == null || nuevo.getNombre() == null || nuevo.getTipo() == null) {
+        Establecimiento nuevo = leerJson(request, Establecimiento.class);
+        if (nuevo == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
+        if (nuevo.getNombre() == null || nuevo.getTipo() == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'nombre' y 'tipo' son obligatorios");
             return;
         }
@@ -67,7 +72,11 @@ public class EstablecimientoApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Establecimiento datos = GSON.fromJson(leerBody(request), Establecimiento.class);
+        Establecimiento datos = leerJson(request, Establecimiento.class);
+        if (datos == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
         if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
         if (datos.getTipo() != null) existente.setTipo(datos.getTipo());
         if (datos.getDireccion() != null) existente.setDireccion(datos.getDireccion());
@@ -89,10 +98,5 @@ public class EstablecimientoApiServlet extends HttpServlet {
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Establecimiento no encontrado con id " + id);
         }
-    }
-
-    static class MensajeDTO {
-        String mensaje;
-        MensajeDTO(String mensaje) { this.mensaje = mensaje; }
     }
 }

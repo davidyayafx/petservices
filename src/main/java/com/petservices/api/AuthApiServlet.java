@@ -19,6 +19,7 @@ import static com.petservices.api.util.ApiUtil.*;
  *
  * Complementa el LoginServlet (basado en sesión/JSP) con una vía de
  * autenticación por API para clientes externos (apps móviles, SPA, etc.).
+ * La respuesta no incluye la contraseña.
  *
  * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
  */
@@ -30,8 +31,12 @@ public class AuthApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Credenciales credenciales = GSON.fromJson(leerBody(request), Credenciales.class);
-        if (credenciales == null || credenciales.correo == null || credenciales.contrasena == null) {
+        Credenciales credenciales = leerJson(request, Credenciales.class);
+        if (credenciales == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
+        if (credenciales.correo == null || credenciales.contrasena == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'correo' y 'contrasena' son obligatorios");
             return;
         }
@@ -39,7 +44,7 @@ public class AuthApiServlet extends HttpServlet {
         if (cliente == null) {
             enviarError(response, HttpServletResponse.SC_UNAUTHORIZED, "Correo o contraseña incorrectos");
         } else {
-            enviarJson(response, HttpServletResponse.SC_OK, cliente);
+            enviarJsonSinContrasena(response, HttpServletResponse.SC_OK, cliente);
         }
     }
 

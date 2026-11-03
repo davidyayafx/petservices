@@ -1,5 +1,6 @@
 package com.petservices.controller;
 
+import com.petservices.dao.IServicioDAO;
 import com.petservices.dao.ServicioDAO;
 import com.petservices.modelo.Servicio;
 
@@ -28,7 +29,7 @@ import java.util.List;
 @WebServlet("/servicios")
 public class ServicioServlet extends BaseModuleServlet {
 
-    private final ServicioDAO servicioDAO = new ServicioDAO();
+    private final IServicioDAO servicioDAO = new ServicioDAO();
 
     // ──────────────────────────────────────────────────────────────────────
     // doGet: Operaciones de lectura y navegación

@@ -1,5 +1,6 @@
 package com.petservices.api;
 
+import com.petservices.dao.IServicioDAO;
 import com.petservices.dao.ServicioDAO;
 import com.petservices.modelo.Servicio;
 
@@ -25,7 +26,7 @@ import static com.petservices.api.util.ApiUtil.*;
 @WebServlet("/api/servicios/*")
 public class ServicioApiServlet extends HttpServlet {
 
-    private final ServicioDAO servicioDAO = new ServicioDAO();
+    private final IServicioDAO servicioDAO = new ServicioDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -45,8 +46,12 @@ public class ServicioApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Servicio nuevo = GSON.fromJson(leerBody(request), Servicio.class);
-        if (nuevo == null || nuevo.getNombre() == null || nuevo.getTipo() == null) {
+        Servicio nuevo = leerJson(request, Servicio.class);
+        if (nuevo == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
+        if (nuevo.getNombre() == null || nuevo.getTipo() == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'nombre' y 'tipo' son obligatorios");
             return;
         }
@@ -67,7 +72,11 @@ public class ServicioApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Servicio datos = GSON.fromJson(leerBody(request), Servicio.class);
+        Servicio datos = leerJson(request, Servicio.class);
+        if (datos == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
         if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
         if (datos.getTipo() != null) existente.setTipo(datos.getTipo());
         if (datos.getIdMascota() != null) existente.setIdMascota(datos.getIdMascota());
@@ -88,10 +97,5 @@ public class ServicioApiServlet extends HttpServlet {
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Servicio no encontrado con id " + id);
         }
-    }
-
-    static class MensajeDTO {
-        String mensaje;
-        MensajeDTO(String mensaje) { this.mensaje = mensaje; }
     }
 }

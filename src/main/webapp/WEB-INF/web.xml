@@ -3,14 +3,8 @@
   web.xml — Descriptor de despliegue de PetServices
   ─────────────────────────────────────────────────
   Configura la aplicación web para el servidor Tomcat.
-  Define la página de bienvenida (index.jsp), los parámetros globales y
-  declara EXPLÍCITAMENTE los servlets web (además de la anotación
-  @WebServlet de cada clase). La declaración explícita garantiza el mapeo
-  de rutas en cualquier Tomcat y evita el error 404 cuando el escaneo de
-  anotaciones no se completa (p. ej. servidores embebidos o IDE con
-  despliegue incremental).
-
-  Los Servlets de la API REST (/api/*) siguen usando solo @WebServlet.
+  Los servlets se registran mediante la anotación @WebServlet
+  en cada clase (Servlet 3.0+), por lo que no se declaran aquí.
 
   Proyecto: PetServices - SENA GA7-220501096
 -->
@@ -26,91 +20,6 @@
         Módulos: dashboard, clientes, mascotas, citas, servicios,
         productos y pedidos (CRUD) + API REST en JSON.
     </description>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         SERVLETS WEB (declaración explícita — mapeo garantizado)
-         ═══════════════════════════════════════════════════════════════ -->
-    <servlet>
-        <servlet-name>RegistroServlet</servlet-name>
-        <servlet-class>com.petservices.servlet.RegistroServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>LoginServlet</servlet-name>
-        <servlet-class>com.petservices.servlet.LoginServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>LogoutServlet</servlet-name>
-        <servlet-class>com.petservices.servlet.LogoutServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>DashboardServlet</servlet-name>
-        <servlet-class>com.petservices.controller.DashboardServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>ClienteServlet</servlet-name>
-        <servlet-class>com.petservices.servlet.ClienteServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>MascotaServlet</servlet-name>
-        <servlet-class>com.petservices.controller.MascotaServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>CitaServlet</servlet-name>
-        <servlet-class>com.petservices.controller.CitaServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>ServicioServlet</servlet-name>
-        <servlet-class>com.petservices.controller.ServicioServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>ProductoServlet</servlet-name>
-        <servlet-class>com.petservices.controller.ProductoServlet</servlet-class>
-    </servlet>
-    <servlet>
-        <servlet-name>PedidoServlet</servlet-name>
-        <servlet-class>com.petservices.controller.PedidoServlet</servlet-class>
-    </servlet>
-
-    <servlet-mapping>
-        <servlet-name>RegistroServlet</servlet-name>
-        <url-pattern>/registro</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>LoginServlet</servlet-name>
-        <url-pattern>/login</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>LogoutServlet</servlet-name>
-        <url-pattern>/logout</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>DashboardServlet</servlet-name>
-        <url-pattern>/dashboard</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>ClienteServlet</servlet-name>
-        <url-pattern>/clientes</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>MascotaServlet</servlet-name>
-        <url-pattern>/mascotas</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>CitaServlet</servlet-name>
-        <url-pattern>/citas</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>ServicioServlet</servlet-name>
-        <url-pattern>/servicios</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>ProductoServlet</servlet-name>
-        <url-pattern>/productos</url-pattern>
-    </servlet-mapping>
-    <servlet-mapping>
-        <servlet-name>PedidoServlet</servlet-name>
-        <url-pattern>/pedidos</url-pattern>
-    </servlet-mapping>
 
     <!-- ── Página de bienvenida: redirige al login automáticamente ── -->
     <welcome-file-list>

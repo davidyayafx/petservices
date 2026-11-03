@@ -42,16 +42,16 @@ public class PedidoServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
         if ("editar".equalsIgnoreCase(accion)) {
-            try {
-                int id = parseEntero(request.getParameter("id"));
+            int id = parseEntero(request.getParameter("id"));
+            if (id <= 0) {
+                enviarMensaje(request, "❌ El identificador del pedido no es válido.", "error");
+            } else {
                 Pedido pedido = pedidoDAO.buscarPorId(id);
                 if (pedido != null) {
                     request.setAttribute("pedidoEditar", pedido);
                 } else {
                     enviarMensaje(request, "❌ El pedido seleccionado no existe.", "error");
                 }
-            } catch (NumberFormatException ex) {
-                enviarMensaje(request, "❌ El identificador del pedido no es válido.", "error");
             }
         }
 
@@ -68,16 +68,12 @@ public class PedidoServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
 
-        try {
-            if ("eliminar".equalsIgnoreCase(accion)) {
-                eliminarPedido(request);
-            } else if ("actualizar".equalsIgnoreCase(accion)) {
-                actualizarPedido(request);
-            } else {
-                guardarPedido(request);
-            }
-        } catch (NumberFormatException ex) {
-            enviarMensaje(request, "❌ Verifica cliente, producto, cantidad y fecha del pedido.", "error");
+        if ("eliminar".equalsIgnoreCase(accion)) {
+            eliminarPedido(request);
+        } else if ("actualizar".equalsIgnoreCase(accion)) {
+            actualizarPedido(request);
+        } else {
+            guardarPedido(request);
         }
 
         cargarVista(request, response);
@@ -137,8 +133,8 @@ public class PedidoServlet extends BaseModuleServlet {
         int idCliente = parseEntero(request.getParameter("idCliente"));
         int idProducto = parseEntero(request.getParameter("idProducto"));
         int cantidad = parseEntero(request.getParameter("cantidad"));
-        String fecha = texto(request.getParameter("fecha"));
-        String estado = texto(request.getParameter("estado"));
+        String fecha = limpiar(request.getParameter("fecha"));
+        String estado = limpiar(request.getParameter("estado"));
 
         if (idCliente <= 0 || idProducto <= 0 || cantidad <= 0 || fecha.isEmpty() || estado.isEmpty()) {
             enviarMensaje(request, "❌ Todos los campos del pedido son obligatorios.", "error");
@@ -181,9 +177,5 @@ public class PedidoServlet extends BaseModuleServlet {
         request.setAttribute("listaClientes", clientes);
         request.setAttribute("listaProductos", productos);
         request.getRequestDispatcher("/vistas/pedidos.jsp").forward(request, response);
-    }
-
-    private String texto(String valor) {
-        return valor == null ? "" : valor.trim();
     }
 }

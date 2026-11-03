@@ -2,6 +2,7 @@ package com.petservices.controller;
 
 import com.petservices.dao.CitaDAO;
 import com.petservices.dao.ClienteDAO;
+import com.petservices.dao.IServicioDAO;
 import com.petservices.dao.MascotaDAO;
 import com.petservices.dao.PedidoDAO;
 import com.petservices.dao.ProductoDAO;
@@ -34,7 +35,7 @@ public class DashboardServlet extends BaseModuleServlet {
     private final MascotaDAO  mascotaDAO  = new MascotaDAO();
     private final CitaDAO     citaDAO     = new CitaDAO();
     private final ProductoDAO productoDAO = new ProductoDAO();
-    private final ServicioDAO servicioDAO = new ServicioDAO();
+    private final IServicioDAO servicioDAO = new ServicioDAO();
     private final PedidoDAO   pedidoDAO   = new PedidoDAO();
 
     @Override

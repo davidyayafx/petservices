@@ -31,6 +31,12 @@ Formato de error homogéneo:
 { "error": "descripción del problema" }
 ```
 
+Un cuerpo vacío o con JSON mal formado responde `400 Bad Request` con
+`{ "error": "El cuerpo de la petición debe contener un JSON válido." }`.
+
+Las respuestas que devuelven clientes (incluido el login) **no incluyen** el campo
+`contrasena`: solo se acepta en el cuerpo de `POST`/`PUT` y en el login.
+
 ---
 
 ## 1. Autenticación — `/api/auth`
@@ -139,7 +145,12 @@ Reglas: `tipo` y `nombre` obligatorios.
 { "fecha": "2026-08-01", "hora": "10:00:00", "idMascota": 1, "idEstablecimiento": 1 }
 ```
 Reglas: `fecha` y `hora` obligatorios. `estado` solo admite `pendiente | confirmada | cancelada | completada`
-(si se envía uno distinto, responde `400 Bad Request`). Si no se envía `estado`, se asigna `pendiente` por defecto.
+**sin distinguir mayúsculas** (si se envía uno distinto, responde `400 Bad Request`). El estado se guarda
+en su forma canónica (`Pendiente`, `Confirmada`, `Cancelada`, `Completada`); si no se envía, se asigna
+`Pendiente`. También se acepta `fechaHora` en formato `2026-08-01T10:00` en lugar del par `fecha` + `hora`.
+
+**PUT parcial:** si el cuerpo solo trae `estado`, la fecha y la hora existentes se conservan
+(antes se perdía la hora).
 
 ---
 

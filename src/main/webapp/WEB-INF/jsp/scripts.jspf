@@ -1,0 +1,90 @@
+<script>
+    function updateThemeUI() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var textEl = document.getElementById('themeToggleText');
+        if (textEl) textEl.textContent = isDark ? 'Modo Claro' : 'Modo Oscuro';
+    }
+
+    function toggleTheme() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('petservices_theme', 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('petservices_theme', 'dark');
+        }
+        updateThemeUI();
+    }
+
+    function toggleSidebar() {
+        document.body.classList.toggle('sidebar-open');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        updateThemeUI();
+
+        // Cerrar el cajón móvil al pulsar fuera de él
+        document.addEventListener('click', function (e) {
+            if (!document.body.classList.contains('sidebar-open')) return;
+            var target = e.target;
+            if (!target || !target.closest) return;
+            if (target.closest('.app-sidebar') || target.closest('.menu-btn')) return;
+            document.body.classList.remove('sidebar-open');
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') document.body.classList.remove('sidebar-open');
+        });
+    });
+
+    /* ── Modal de confirmación: confinar Tab dentro del diálogo mientras esté
+       activo (aria-modal exige confinamiento) y devolver el foco al
+       disparador al cerrar. Compartido por todos los módulos CRUD. ── */
+    (function () {
+        var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        var trigger = null;
+
+        function modal() { return document.getElementById('modalConfirmacion'); }
+        function abierto() { var m = modal(); return !!m && m.classList.contains('is-active'); }
+
+        // Recordar el disparador ANTES de que la vista abra el modal (capture)
+        document.addEventListener('click', function (e) {
+            if (abierto() || !e.target || !e.target.closest) return;
+            var t = e.target.closest(FOCUSABLE);
+            if (t) trigger = t;
+        }, true);
+
+        // Confinar Tab / Shift+Tab al diálogo mientras esté activo
+        document.addEventListener('keydown', function (e) {
+            if (!abierto() || e.key !== 'Tab') return;
+            var m = modal();
+            var items = Array.prototype.filter.call(m.querySelectorAll(FOCUSABLE), function (el) {
+                return el.offsetWidth > 0 || el.offsetHeight > 0;
+            });
+            if (!items.length) return;
+            var first = items[0];
+            var last = items[items.length - 1];
+            var actual = document.activeElement;
+            var fuera = !m.contains(actual);
+            if (e.shiftKey) {
+                if (actual === first || fuera) { e.preventDefault(); last.focus(); }
+            } else if (actual === last || fuera) {
+                e.preventDefault();
+                first.focus();
+            }
+        });
+
+        // Al cerrarse (botón, Cancelar o Escape), devolver el foco al disparador
+        document.addEventListener('DOMContentLoaded', function () {
+            var m = modal();
+            if (!m || typeof MutationObserver === 'undefined') return;
+            new MutationObserver(function () {
+                if (abierto() || !trigger) return;
+                var t = trigger;
+                trigger = null;
+                if (document.contains(t)) t.focus();
+            }).observe(m, { attributes: true, attributeFilter: ['class'] });
+        });
+    })();
+</script>

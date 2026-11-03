@@ -41,16 +41,16 @@ public class CitaServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
         if ("editar".equalsIgnoreCase(accion)) {
-            try {
-                int id = parseEntero(request.getParameter("id"));
+            int id = parseEntero(request.getParameter("id"));
+            if (id <= 0) {
+                enviarMensaje(request, "❌ El identificador de la cita es inválido.", "error");
+            } else {
                 Cita cita = citaDAO.buscarPorId(id);
                 if (cita != null) {
                     request.setAttribute("citaEditar", cita);
                 } else {
                     enviarMensaje(request, "❌ La cita seleccionada no existe.", "error");
                 }
-            } catch (NumberFormatException ex) {
-                enviarMensaje(request, "❌ El identificador de la cita es inválido.", "error");
             }
         }
 
@@ -67,16 +67,12 @@ public class CitaServlet extends BaseModuleServlet {
         prepararCabecera(request);
         String accion = request.getParameter("accion");
 
-        try {
-            if ("eliminar".equalsIgnoreCase(accion)) {
-                eliminarCita(request);
-            } else if ("actualizar".equalsIgnoreCase(accion)) {
-                actualizarCita(request);
-            } else {
-                guardarCita(request);
-            }
-        } catch (NumberFormatException ex) {
-            enviarMensaje(request, "❌ Verifica el cliente, la mascota y la fecha de la cita.", "error");
+        if ("eliminar".equalsIgnoreCase(accion)) {
+            eliminarCita(request);
+        } else if ("actualizar".equalsIgnoreCase(accion)) {
+            actualizarCita(request);
+        } else {
+            guardarCita(request);
         }
 
         cargarVista(request, response);
@@ -135,9 +131,9 @@ public class CitaServlet extends BaseModuleServlet {
     private Cita construirCitaDesdeRequest(HttpServletRequest request, int idActual) {
         int idCliente = parseEntero(request.getParameter("idCliente"));
         int idMascota = parseEntero(request.getParameter("idMascota"));
-        String fechaHora = texto(request.getParameter("fechaHora"));
-        String servicio = texto(request.getParameter("servicio"));
-        String estado = texto(request.getParameter("estado"));
+        String fechaHora = limpiar(request.getParameter("fechaHora"));
+        String servicio = limpiar(request.getParameter("servicio"));
+        String estado = limpiar(request.getParameter("estado"));
 
         if (idCliente <= 0 || idMascota <= 0 || fechaHora.isEmpty() || servicio.isEmpty() || estado.isEmpty()) {
             enviarMensaje(request, "❌ Todos los campos de la cita son obligatorios.", "error");
@@ -186,9 +182,5 @@ public class CitaServlet extends BaseModuleServlet {
         request.setAttribute("listaClientes", clientes);
         request.setAttribute("listaMascotas", mascotas);
         request.getRequestDispatcher("/vistas/citas.jsp").forward(request, response);
-    }
-
-    private String texto(String valor) {
-        return valor == null ? "" : valor.trim();
     }
 }

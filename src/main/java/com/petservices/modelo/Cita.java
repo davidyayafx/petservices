@@ -11,6 +11,7 @@ public class Cita {
     private String servicio;
     private String estado;
     private int idEstablecimiento;
+    private int idServicio;
 
     public Cita() {
     }
@@ -121,6 +122,11 @@ public class Cita {
     }
 
     public void setHora(String hora) {
+        // Si no se envía hora, se conserva la que ya tuviera la cita
+        // (evita que un PUT parcial la convierta en 00:00).
+        if (hora == null || hora.trim().isEmpty()) {
+            return;
+        }
         this.fechaHora = construirFechaHora(getFecha(), hora);
     }
 
@@ -146,6 +152,14 @@ public class Cita {
 
     public void setIdEstablecimiento(int idEstablecimiento) {
         this.idEstablecimiento = idEstablecimiento;
+    }
+
+    public int getIdServicio() {
+        return idServicio;
+    }
+
+    public void setIdServicio(int idServicio) {
+        this.idServicio = idServicio;
     }
 
     private static String construirFechaHora(String fecha, String hora) {

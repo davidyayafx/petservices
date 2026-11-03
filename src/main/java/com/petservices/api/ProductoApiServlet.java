@@ -44,7 +44,14 @@ public class ProductoApiServlet extends HttpServlet {
         String stockMenorA = request.getParameter("stockMenorA");
         List<Producto> lista = productoDAO.listarTodos();
         if (stockMenorA != null) {
-            int limite = Integer.parseInt(stockMenorA);
+            int limite;
+            try {
+                limite = Integer.parseInt(stockMenorA.trim());
+            } catch (NumberFormatException e) {
+                enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "El parámetro 'stockMenorA' debe ser un número entero");
+                return;
+            }
             lista.removeIf(p -> p.getStock() >= limite);
         }
         enviarJson(response, HttpServletResponse.SC_OK, lista);
@@ -53,8 +60,12 @@ public class ProductoApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Producto nuevo = GSON.fromJson(leerBody(request), Producto.class);
-        if (nuevo == null || nuevo.getNombre() == null) {
+        Producto nuevo = leerJson(request, Producto.class);
+        if (nuevo == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
+        if (nuevo.getNombre() == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "El campo 'nombre' es obligatorio");
             return;
         }
@@ -75,7 +86,11 @@ public class ProductoApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Producto datos = GSON.fromJson(leerBody(request), Producto.class);
+        Producto datos = leerJson(request, Producto.class);
+        if (datos == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
         if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
         if (datos.getDescripcion() != null) existente.setDescripcion(datos.getDescripcion());
         if (datos.getPrecio() != 0) existente.setPrecio(datos.getPrecio());
@@ -98,10 +113,5 @@ public class ProductoApiServlet extends HttpServlet {
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Producto no encontrado con id " + id);
         }
-    }
-
-    static class MensajeDTO {
-        String mensaje;
-        MensajeDTO(String mensaje) { this.mensaje = mensaje; }
     }
 }

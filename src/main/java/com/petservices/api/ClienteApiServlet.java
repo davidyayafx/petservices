@@ -21,6 +21,9 @@ import static com.petservices.api.util.ApiUtil.*;
  * PUT    /api/clientes/{id}   -> actualiza un cliente (body JSON)
  * DELETE /api/clientes/{id}   -> elimina un cliente
  *
+ * Las respuestas de este recurso nunca incluyen el campo "contrasena"
+ * (ver ApiUtil.enviarJsonSinContrasena).
+ *
  * Todas las respuestas son JSON. Ver documentación completa en
  * DOCUMENTACION_API.md
  *
@@ -36,13 +39,13 @@ public class ClienteApiServlet extends HttpServlet {
         int id = extraerId(request);
         if (id == -1) {
             List<Cliente> lista = clienteDAO.listarTodos();
-            enviarJson(response, HttpServletResponse.SC_OK, lista);
+            enviarJsonSinContrasena(response, HttpServletResponse.SC_OK, lista);
         } else {
             Cliente cliente = clienteDAO.buscarPorId(id);
             if (cliente == null) {
                 enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Cliente no encontrado con id " + id);
             } else {
-                enviarJson(response, HttpServletResponse.SC_OK, cliente);
+                enviarJsonSinContrasena(response, HttpServletResponse.SC_OK, cliente);
             }
         }
     }
@@ -50,14 +53,18 @@ public class ClienteApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Cliente nuevo = GSON.fromJson(leerBody(request), Cliente.class);
-        if (nuevo == null || nuevo.getNombre() == null || nuevo.getCorreo() == null) {
+        Cliente nuevo = leerJson(request, Cliente.class);
+        if (nuevo == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
+        if (nuevo.getNombre() == null || nuevo.getCorreo() == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'nombre' y 'correo' son obligatorios");
             return;
         }
         boolean creado = clienteDAO.insertar(nuevo);
         if (creado) {
-            enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
+            enviarJsonSinContrasena(response, HttpServletResponse.SC_CREATED, nuevo);
         } else {
             enviarError(response, HttpServletResponse.SC_CONFLICT, "El correo '" + nuevo.getCorreo() + "' ya está registrado");
         }
@@ -76,14 +83,18 @@ public class ClienteApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Cliente datos = GSON.fromJson(leerBody(request), Cliente.class);
+        Cliente datos = leerJson(request, Cliente.class);
+        if (datos == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
         if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
         if (datos.getCorreo() != null) existente.setCorreo(datos.getCorreo());
         if (datos.getContrasena() != null && !datos.getContrasena().isEmpty()) {
             existente.setContrasena(datos.getContrasena());
         }
         clienteDAO.actualizar(existente);
-        enviarJson(response, HttpServletResponse.SC_OK, existente);
+        enviarJsonSinContrasena(response, HttpServletResponse.SC_OK, existente);
     }
 
     @Override
@@ -99,11 +110,5 @@ public class ClienteApiServlet extends HttpServlet {
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Cliente no encontrado con id " + id);
         }
-    }
-
-    /** DTO simple para mensajes de confirmación. */
-    static class MensajeDTO {
-        String mensaje;
-        MensajeDTO(String mensaje) { this.mensaje = mensaje; }
     }
 }

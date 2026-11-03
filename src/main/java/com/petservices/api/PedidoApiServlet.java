@@ -45,8 +45,12 @@ public class PedidoApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Pedido nuevo = GSON.fromJson(leerBody(request), Pedido.class);
-        if (nuevo == null || nuevo.getTotal() <= 0) {
+        Pedido nuevo = leerJson(request, Pedido.class);
+        if (nuevo == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
+        if (nuevo.getTotal() <= 0) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "El campo 'total' debe ser mayor que 0");
             return;
         }
@@ -67,7 +71,11 @@ public class PedidoApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Pedido datos = GSON.fromJson(leerBody(request), Pedido.class);
+        Pedido datos = leerJson(request, Pedido.class);
+        if (datos == null) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
+            return;
+        }
         if (datos.getEstado() != null) existente.setEstado(datos.getEstado());
         if (datos.getTotal() > 0) existente.setTotal(datos.getTotal());
         if (datos.getCantidad() > 0) existente.setCantidad(datos.getCantidad());
@@ -88,10 +96,5 @@ public class PedidoApiServlet extends HttpServlet {
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Pedido no encontrado con id " + id);
         }
-    }
-
-    static class MensajeDTO {
-        String mensaje;
-        MensajeDTO(String mensaje) { this.mensaje = mensaje; }
     }
 }

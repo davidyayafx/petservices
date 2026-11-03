@@ -29,6 +29,18 @@ public class ClienteServlet extends HttpServlet {
 
     private final ClienteDAO clienteDAO = new ClienteDAO();
 
+    /** Convierte el parámetro id a entero sin lanzar excepciones (0 si no es válido). */
+    private int parseId(String valor) {
+        if (valor == null || valor.trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(valor.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // doGet: Operaciones de lectura y navegación
     // ──────────────────────────────────────────────────────────────────────
@@ -51,7 +63,7 @@ public class ClienteServlet extends HttpServlet {
 
             case "editar":
                 // Cargar los datos del cliente seleccionado en el formulario de edición
-                int idEditar = Integer.parseInt(request.getParameter("id"));
+                int idEditar = parseId(request.getParameter("id"));
                 Cliente clienteEditar = clienteDAO.buscarPorId(idEditar);
                 if (clienteEditar != null) {
                     request.setAttribute("clienteEditar", clienteEditar);
@@ -62,7 +74,7 @@ public class ClienteServlet extends HttpServlet {
 
             case "eliminar":
                 // Eliminar el cliente con el id especificado
-                int idEliminar = Integer.parseInt(request.getParameter("id"));
+                int idEliminar = parseId(request.getParameter("id"));
                 boolean eliminado = clienteDAO.eliminar(idEliminar);
                 if (eliminado) {
                     request.setAttribute("mensaje", "✅ Cliente eliminado correctamente.");
@@ -122,7 +134,7 @@ public class ClienteServlet extends HttpServlet {
 
         } else if ("actualizar".equals(accion)) {
             // ── ACTUALIZAR cliente existente ─────────────────────────────
-            int    id        = Integer.parseInt(request.getParameter("id"));
+            int    id        = parseId(request.getParameter("id"));
             String nombre    = request.getParameter("nombre");
             String correo    = request.getParameter("correo");
             String contrasena = request.getParameter("contrasena");

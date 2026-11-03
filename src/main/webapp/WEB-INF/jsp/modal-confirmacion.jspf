@@ -1,0 +1,87 @@
+<%--
+  modal-confirmacion.jspf — modal de confirmación compartido por los módulos CRUD.
+  ──────────────────────────────────────────────────────────────────────────────
+  Reemplaza las 6 copias del modal (hallazgo M3). Se incluye dentro de
+  <div class="app-layout">, después de </main>.
+
+  La vista DEBE definir estas variables antes del include:
+    String  modalTitulo    título del diálogo
+    String  modalTexto     descripción que se muestra al abrir
+    String  modalBoton     texto del botón que confirma
+    String  modalCancelar  texto del botón que cierra
+    String  modalAccion    URL del servlet que procesa la baja
+    boolean modalEnlace    true  -> confirma con GET (los módulos que borran por enlace)
+                           false -> envía el formulario POST oculto (resto de módulos)
+
+  Expone en la página:
+    confirmarEliminarDesdeBoton(btn)   lee data-id / data-nombre del botón pulsado
+    abrirModalConfirmacion(mensaje, url)
+    cerrarModalConfirmacion()
+    enviarConfirmacion()
+--%>
+<% if (!modalEnlace) { %>
+<form id="formConfirmarAccion" method="post" action="<%= modalAccion %>" hidden>
+    <input type="hidden" name="accion" value="eliminar">
+    <input type="hidden" name="id" id="confirmarAccionId" value="">
+</form>
+<% } %>
+
+<div id="modalConfirmacion" class="app-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitulo" aria-describedby="modalDescripcion">
+    <div class="app-modal-card">
+        <div class="app-modal-header">
+            <div class="app-modal-icon danger" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h3 id="modalTitulo" class="app-modal-title"><%= esc(modalTitulo) %></h3>
+        </div>
+        <div id="modalDescripcion" class="app-modal-body"><%= esc(modalTexto) %></div>
+        <div class="app-modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="cerrarModalConfirmacion()"><%= esc(modalCancelar) %></button>
+            <button type="button" id="btnConfirmarAccion" class="btn btn-danger" onclick="enviarConfirmacion()"><%= esc(modalBoton) %></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function abrirModalConfirmacion(mensaje, url) {
+        var modal = document.getElementById('modalConfirmacion');
+        var desc = document.getElementById('modalDescripcion');
+        var btn = document.getElementById('btnConfirmarAccion');
+        if (desc && mensaje) desc.textContent = mensaje;
+        if (btn) btn.setAttribute('data-url', url || '');
+        if (modal) {
+            modal.classList.add('is-active');
+            var cancelBtn = modal.querySelector('.btn-secondary');
+            if (cancelBtn) cancelBtn.focus();
+        }
+    }
+
+    function cerrarModalConfirmacion() {
+        var modal = document.getElementById('modalConfirmacion');
+        if (modal) modal.classList.remove('is-active');
+    }
+
+    function enviarConfirmacion() {
+        var btn = document.getElementById('btnConfirmarAccion');
+        var url = btn ? btn.getAttribute('data-url') : '';
+        if (url) {
+            window.location.href = url;
+            return;
+        }
+        var form = document.getElementById('formConfirmarAccion');
+        if (form) form.submit();
+    }
+
+    /* Los botones de la tabla llevan data-id y data-nombre ya escapados por el
+       servidor; aquí solo se leen como texto, sin concatenar HTML ni JS. */
+    function confirmarEliminarDesdeBoton(btn) {
+        if (!btn || typeof confirmarEliminar !== 'function') return;
+        confirmarEliminar(btn.getAttribute('data-id'), btn.getAttribute('data-nombre'));
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            cerrarModalConfirmacion();
+        }
+    });
+</script>
