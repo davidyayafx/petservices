@@ -759,13 +759,13 @@ svg {
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
   text-align: left;
-  padding: 11px var(--sp-5);
+  padding: 11px var(--sp-3);
   border-bottom: var(--hair);
   white-space: nowrap;
 }
 
 .table td {
-  padding: 13px var(--sp-5);
+  padding: 13px var(--sp-3);
   border-bottom: var(--hair);
   font-size: 0.86rem;
   vertical-align: middle;
@@ -784,9 +784,35 @@ svg {
   border-bottom: 0;
 }
 
+/* La celda lleva la misma clase que su contenedor interno (span.cell-actions);
+   sin este display la celda hereda el inline-flex y deja de ser table-cell:
+   el navegador la envuelve en una celda anónima y rompe la cuadrícula. */
 .table td.cell-actions {
+  display: table-cell;
   text-align: right;
   white-space: nowrap;
+}
+
+/* Pedidos: 7 columnas con tres acciones cada una. En pantallas estrechas los
+   botones se apilan dentro de la celda para que la tabla no desborde la tarjeta. */
+@media (max-width: 1150px) {
+  .table-pedidos td.cell-actions {
+    white-space: normal;
+  }
+
+  .table-pedidos td.cell-actions > .cell-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .table-pedidos td.cell-actions > .cell-actions > * {
+    flex: 1 1 100%;
+  }
+
+  .table-pedidos td.cell-actions .btn {
+    width: 100%;
+  }
 }
 
 .table td.num,
@@ -1379,11 +1405,6 @@ select.form-control {
   justify-content: center;
   padding: var(--sp-8) var(--sp-5);
   background-color: var(--paper);
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0 31px,
-    rgba(37, 109, 92, 0.06) 31px 32px
-  );
 }
 
 .auth-card {
@@ -1402,11 +1423,6 @@ select.form-control {
 
 .auth-banner {
   background-color: var(--rubric-solid);
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0 27px,
-    rgba(255, 255, 255, 0.07) 27px 28px
-  );
   color: #ffffff;
   padding: var(--sp-8) var(--sp-7);
   display: flex;
@@ -1566,11 +1582,6 @@ select.form-control {
   justify-content: center;
   padding: var(--sp-8) var(--sp-5);
   background-color: var(--paper);
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0 31px,
-    rgba(37, 109, 92, 0.06) 31px 32px
-  );
 }
 
 .error-sheet {
@@ -1665,7 +1676,7 @@ select.form-control {
 
 /* ── 17. Responsive ───────────────────────────────────────────────────────── */
 
-@media (max-width: 1100px) {
+@media (max-width: 1500px) {
   .dash-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1824,11 +1835,6 @@ select.form-control {
   display: flex;
   flex-direction: column;
   background-color: var(--paper);
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0 31px,
-    rgba(37, 109, 92, 0.06) 31px 32px
-  );
 }
 
 .public-topbar {

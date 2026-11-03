@@ -263,7 +263,7 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table table-pedidos">
                         <thead>
                             <tr>
                                 <th class="num">N.º</th>
@@ -300,6 +300,7 @@
                                 <td class="num">$<%= moneda(p.getTotal()) %></td>
                                 <td><span class="badge <%= badgeEstado(p.getEstado()) %>"><%= esc(estadoTexto) %></span></td>
                                 <td class="cell-actions">
+                                    <span class="cell-actions">
                                     <a href="<%= request.getContextPath() %>/pedidos?accion=editar&id=<%= p.getIdPedido() %>" class="btn btn-sm">Editar</a>
                                     <form method="post" action="<%= request.getContextPath() %>/pedidos" onsubmit="return confirm('¿Marcar el pedido #<%= p.getIdPedido() %> como pagado?')">
                                         <input type="hidden" name="accion" value="actualizar">
@@ -315,6 +316,7 @@
                                     <button type="button" class="btn btn-sm btn-danger"
                                             data-id="<%= p.getIdPedido() %>"
                                             onclick="confirmarEliminarDesdeBoton(this)">Eliminar</button>
+                                    </span>
                                 </td>
                             </tr>
                         <%
