@@ -74,7 +74,9 @@ public class RegistroServlet extends HttpServlet {
             return;
         }
 
-        if (!contrasena.equals(confirmar)) {
+        // Si el formulario envía la confirmación, debe coincidir con la contraseña.
+        // (Se tolera su ausencia para clientes antiguos o envíos sin ese campo.)
+        if (confirmar != null && !confirmar.isEmpty() && !contrasena.equals(confirmar)) {
             enviarMensaje(request, response,
                     "❌ Las contraseñas no coinciden.", "error");
             return;

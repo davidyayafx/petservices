@@ -1,6 +1,10 @@
 package com.petservices.api;
 
+import com.petservices.dao.ClienteDAO;
+import com.petservices.dao.IClienteDAO;
+import com.petservices.dao.IMascotaDAO;
 import com.petservices.dao.MascotaDAO;
+import com.petservices.modelo.Cliente;
 import com.petservices.modelo.Mascota;
 
 import javax.servlet.annotation.WebServlet;
@@ -22,17 +26,25 @@ import static com.petservices.api.util.ApiUtil.*;
  * PUT    /api/mascotas/{id}          -> actualiza una mascota (body JSON)
  * DELETE /api/mascotas/{id}          -> elimina una mascota
  *
+ * El PUT es parcial: actualiza nombre, especie, raza, edad, dueño y servicio
+ * solo cuando vienen en el cuerpo. Si se cambia el dueño, se valida que exista
+ * y se recalcula 'nombreCliente'.
+ *
  * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
  */
 @WebServlet("/api/mascotas/*")
 public class MascotaApiServlet extends HttpServlet {
 
-    private final MascotaDAO mascotaDAO = new MascotaDAO();
+    private final IMascotaDAO mascotaDAO = new MascotaDAO();
+    private final IClienteDAO clienteDAO = new ClienteDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id != -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id != ID_AUSENTE) {
             Mascota mascota = mascotaDAO.buscarPorId(id);
             if (mascota == null) {
                 enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Mascota no encontrada con id " + id);
@@ -61,15 +73,22 @@ public class MascotaApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Mascota nueva = leerJson(request, Mascota.class);
-        if (nueva == null) {
+        MascotaEntrada datos = leerJson(request, MascotaEntrada.class);
+        if (datos == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (nueva.getNombre() == null || nueva.getRaza() == null) {
+        if (datos.nombre == null || datos.nombre.trim().isEmpty()
+                || datos.raza == null || datos.raza.trim().isEmpty()) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'nombre' y 'raza' son obligatorios");
             return;
         }
+
+        Mascota nueva = new Mascota();
+        if (!aplicarDueno(datos, nueva, response)) {
+            return;
+        }
+        datos.volcarEn(nueva);
         mascotaDAO.insertar(nueva);
         enviarJson(response, HttpServletResponse.SC_CREATED, nueva);
     }
@@ -77,7 +96,10 @@ public class MascotaApiServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id == -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id de la mascota en la URL: /api/mascotas/{id}");
             return;
         }
@@ -87,14 +109,15 @@ public class MascotaApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Mascota datos = leerJson(request, Mascota.class);
+        MascotaEntrada datos = leerJson(request, MascotaEntrada.class);
         if (datos == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
-        if (datos.getRaza() != null) existente.setRaza(datos.getRaza());
-        if (datos.getIdServicio() != null) existente.setIdServicio(datos.getIdServicio());
+        if (!aplicarDueno(datos, existente, response)) {
+            return;
+        }
+        datos.volcarEn(existente);
         mascotaDAO.actualizar(existente);
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
@@ -102,7 +125,10 @@ public class MascotaApiServlet extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id == -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id de la mascota en la URL: /api/mascotas/{id}");
             return;
         }
@@ -111,6 +137,58 @@ public class MascotaApiServlet extends HttpServlet {
             enviarJson(response, HttpServletResponse.SC_OK, new MensajeDTO("Mascota eliminada correctamente"));
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Mascota no encontrada con id " + id);
+        }
+    }
+
+    /**
+     * Resuelve y valida el dueño cuando viene en el cuerpo.
+     *
+     * @return {@code false} si ya se respondió con un error (cliente inexistente).
+     */
+    private boolean aplicarDueno(MascotaEntrada datos, Mascota mascota,
+                                 HttpServletResponse response) throws IOException {
+        if (datos.idCliente == null) {
+            return true;
+        }
+        if (datos.idCliente <= 0) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "El campo 'idCliente' debe ser mayor que 0");
+            return false;
+        }
+        Cliente cliente = clienteDAO.buscarPorId(datos.idCliente);
+        if (cliente == null) {
+            enviarError(response, HttpServletResponse.SC_NOT_FOUND,
+                    "El cliente con id " + datos.idCliente + " no existe");
+            return false;
+        }
+        mascota.setIdCliente(cliente.getIdCliente());
+        mascota.setNombreCliente(cliente.getNombre());
+        return true;
+    }
+
+    /**
+     * Cuerpo de entrada de POST/PUT. Usa tipos envoltorio para distinguir
+     * "campo no enviado" (null) de un valor real.
+     */
+    static class MascotaEntrada {
+        String nombre;
+        String especie;
+        String raza;
+        Integer edad;
+        Integer idCliente;
+        String nombreCliente;
+        Integer idServicio;
+
+        void volcarEn(Mascota mascota) {
+            if (nombre != null) mascota.setNombre(nombre.trim());
+            if (especie != null) mascota.setEspecie(especie.trim());
+            if (raza != null) mascota.setRaza(raza.trim());
+            if (edad != null) mascota.setEdad(edad);
+            if (idCliente != null) mascota.setIdCliente(idCliente);
+            if (nombreCliente != null && mascota.getNombreCliente() == null) {
+                mascota.setNombreCliente(nombreCliente.trim());
+            }
+            if (idServicio != null) mascota.setIdServicio(idServicio);
         }
     }
 }

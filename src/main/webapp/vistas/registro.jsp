@@ -64,7 +64,8 @@
             }
         %>
 
-        <form class="auth-form" action="<%= request.getContextPath() %>/registro" method="post">
+        <form class="auth-form" action="<%= request.getContextPath() %>/registro" method="post"
+              onsubmit="return validarRegistro(this)">
             <div class="form-group">
                 <label class="form-label" for="nombre">Nombre completo</label>
                 <input class="form-control" type="text" id="nombre" name="nombre"
@@ -83,6 +84,12 @@
                        placeholder="Mínimo 6 caracteres" required minlength="6">
             </div>
 
+            <div class="form-group">
+                <label class="form-label" for="confirmar">Repetir contraseña</label>
+                <input class="form-control" type="password" id="confirmar" name="confirmar"
+                       placeholder="Repite la contraseña" required minlength="6">
+            </div>
+
             <button type="submit" class="btn btn-primary btn-block">Completar registro</button>
         </form>
 
@@ -94,6 +101,16 @@
 </div>
 
 <%@ include file="/WEB-INF/jsp/scripts.jspf" %>
+<script>
+    function validarRegistro(form) {
+        if (form.contrasena.value !== form.confirmar.value) {
+            alert('Las contraseñas no coinciden.');
+            form.confirmar.focus();
+            return false;
+        }
+        return true;
+    }
+</script>
 
 </body>
 </html>

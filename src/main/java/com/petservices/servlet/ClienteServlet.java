@@ -142,15 +142,29 @@ public class ClienteServlet extends HttpServlet {
             // Recuperar datos actuales para no pisar la contraseña si viene vacía
             Cliente existente = clienteDAO.buscarPorId(id);
             if (existente != null) {
-                existente.setNombre(nombre.trim());
-                existente.setCorreo(correo.trim().toLowerCase());
-                // Solo actualizar contraseña si el usuario ingresó una nueva
-                if (contrasena != null && !contrasena.trim().isEmpty()) {
-                    existente.setContrasena(contrasena);
+                String correoNormalizado = correo.trim().toLowerCase();
+                // Comprobar el duplicado ANTES de mutar: 'existente' es la instancia del DAO.
+                Cliente conEseCorreo = clienteDAO.buscarPorCorreo(correoNormalizado);
+                if (conEseCorreo != null && conEseCorreo.getIdCliente() != id) {
+                    request.setAttribute("mensaje",
+                            "❌ El correo '" + correo + "' ya está registrado por otro cliente.");
+                    request.setAttribute("tipoMensaje", "error");
+                } else {
+                    existente.setNombre(nombre.trim());
+                    existente.setCorreo(correoNormalizado);
+                    // Solo actualizar contraseña si el usuario ingresó una nueva
+                    if (contrasena != null && !contrasena.trim().isEmpty()) {
+                        existente.setContrasena(contrasena);
+                    }
+                    if (clienteDAO.actualizar(existente)) {
+                        request.setAttribute("mensaje", "✅ Cliente actualizado correctamente.");
+                        request.setAttribute("tipoMensaje", "exito");
+                    } else {
+                        request.setAttribute("mensaje",
+                                "❌ No se pudo actualizar: el correo ya está registrado.");
+                        request.setAttribute("tipoMensaje", "error");
+                    }
                 }
-                clienteDAO.actualizar(existente);
-                request.setAttribute("mensaje", "✅ Cliente actualizado correctamente.");
-                request.setAttribute("tipoMensaje", "exito");
             } else {
                 request.setAttribute("mensaje", "❌ Cliente no encontrado.");
                 request.setAttribute("tipoMensaje", "error");

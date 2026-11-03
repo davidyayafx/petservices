@@ -70,9 +70,16 @@ public class ClienteDAO implements IClienteDAO {
             return false;
         }
 
-        Cliente clienteConCorreo = buscarPorCorreo(cliente.getCorreo());
-        if (clienteConCorreo != null && clienteConCorreo.getIdCliente() != cliente.getIdCliente()) {
-            return false;
+        // El objeto recibido suele ser la MISMA instancia guardada en el mapa, así que
+        // ya trae el correo nuevo: hay que comparar contra los demás ids, no con
+        // buscarPorCorreo (que devolvería el propio cliente y ocultaría el duplicado).
+        for (Cliente otro : BASE_DATOS.values()) {
+            if (otro.getIdCliente() != cliente.getIdCliente()
+                    && otro.getCorreo() != null
+                    && cliente.getCorreo() != null
+                    && otro.getCorreo().equalsIgnoreCase(cliente.getCorreo().trim())) {
+                return false;
+            }
         }
 
         BASE_DATOS.put((long) cliente.getIdCliente(), cliente);

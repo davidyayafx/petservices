@@ -30,6 +30,9 @@ public class PedidoApiServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
+        if (!idRutaValido(response, id)) {
+            return;
+        }
         if (id == -1) {
             enviarJson(response, HttpServletResponse.SC_OK, pedidoDAO.listarTodos());
         } else {
@@ -61,6 +64,9 @@ public class PedidoApiServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
+        if (!idRutaValido(response, id)) {
+            return;
+        }
         if (id == -1) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/pedidos/{id}");
             return;
@@ -86,6 +92,9 @@ public class PedidoApiServlet extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
+        if (!idRutaValido(response, id)) {
+            return;
+        }
         if (id == -1) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/pedidos/{id}");
             return;

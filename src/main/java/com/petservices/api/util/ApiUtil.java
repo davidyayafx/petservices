@@ -59,6 +59,12 @@ public final class ApiUtil {
     public static final String MSG_JSON_INVALIDO =
             "El cuerpo de la petición debe contener un JSON válido.";
 
+    /** La ruta no trae id (colección). */
+    public static final int ID_AUSENTE = -1;
+
+    /** La ruta trae un id que no es numérico. */
+    public static final int ID_INVALIDO = -2;
+
     private ApiUtil() {}
 
     /** Escribe un objeto como JSON en la respuesta, con el status HTTP indicado. */
@@ -125,12 +131,13 @@ public final class ApiUtil {
 
     /**
      * Extrae el id numérico del pathInfo de la petición.
-     * Ejemplo: pathInfo = "/3" -> 3 ; pathInfo = null o "/" -> -1 (no hay id)
+     * Ejemplo: pathInfo = "/3" -> 3 ; pathInfo = null o "/" -> -1 (no hay id);
+     * pathInfo no numérico (ej: "/abc") -> -2 (id inválido).
      */
     public static int extraerId(HttpServletRequest request) {
         String pathInfo = request.getPathInfo(); // ej: "/3"
         if (pathInfo == null || pathInfo.equals("/")) {
-            return -1;
+            return ID_AUSENTE;
         }
         String valor = pathInfo.substring(1); // quita el "/"
         // Si viene con más segmentos (ej: /3/algo) solo tomamos el primero
@@ -141,8 +148,22 @@ public final class ApiUtil {
         try {
             return Integer.parseInt(valor);
         } catch (NumberFormatException e) {
-            return -1;
+            return ID_INVALIDO;
         }
+    }
+
+    /**
+     * Responde 404 cuando la ruta trae un id que no es numérico.
+     *
+     * @return {@code false} si ya se envió la respuesta y el servlet debe salir.
+     */
+    public static boolean idRutaValido(HttpServletResponse response, int id) throws IOException {
+        if (id == ID_INVALIDO) {
+            enviarError(response, HttpServletResponse.SC_NOT_FOUND,
+                    "El id de la URL debe ser un número entero.");
+            return false;
+        }
+        return true;
     }
 
     /** DTO simple para representar errores en formato JSON. */

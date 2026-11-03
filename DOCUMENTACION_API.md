@@ -37,6 +37,11 @@ Un cuerpo vacío o con JSON mal formado responde `400 Bad Request` con
 Las respuestas que devuelven clientes (incluido el login) **no incluyen** el campo
 `contrasena`: solo se acepta en el cuerpo de `POST`/`PUT` y en el login.
 
+Los `PUT` son **parciales**: los campos que no se envían conservan su valor actual.
+
+Si la ruta trae un id que no es numérico (por ejemplo `/api/clientes/abc`), la API
+responde `404 Not Found` con `{ "error": "El id de la URL debe ser un número entero." }`.
+
 ---
 
 ## 1. Autenticación — `/api/auth`
@@ -70,7 +75,9 @@ Valida credenciales y retorna el cliente autenticado.
 ```json
 { "nombre": "Daniel Mejia", "correo": "daniel@gmail.com", "contrasena": "123456" }
 ```
-Reglas: `nombre` y `correo` obligatorios. Si el correo ya existe, responde `409 Conflict`.
+Reglas: `nombre` y `correo` obligatorios. El correo debe tener formato `usuario@dominio.tld`
+(si no, `400 Bad Request`) y se guarda en **minúsculas**. Si el correo ya existe —al crear o al
+actualizar— responde `409 Conflict`.
 
 ---
 
@@ -89,7 +96,10 @@ Reglas: `nombre` y `correo` obligatorios. Si el correo ya existe, responde `409 
 ```json
 { "raza": "Labrador", "nombre": "Max", "idCliente": 1 }
 ```
-Reglas: `raza` y `nombre` obligatorios.
+Reglas: `raza` y `nombre` obligatorios. Si se envía `idCliente`, debe existir (si no, `404`)
+y se recalcula `nombreCliente` con el nombre del dueño.
+El `PUT` es parcial: actualiza solo `nombre`, `especie`, `raza`, `edad`, `idCliente` e `idServicio`
+cuando vienen en el cuerpo; si cambia el dueño, se vuelve a resolver `nombreCliente`.
 
 ---
 
@@ -138,7 +148,7 @@ Reglas: `tipo` y `nombre` obligatorios.
 | GET | `/api/citas?estado={estado}` | Filtra citas por estado |
 | POST | `/api/citas` | Agenda una cita |
 | PUT | `/api/citas/{id}` | Actualiza fecha, hora o estado |
-| DELETE | `/api/citas/{id}` | Cancela (elimina) una cita |
+| DELETE | `/api/citas/{id}` | Elimina definitivamente una cita |
 
 **Body para POST:**
 ```json
@@ -149,8 +159,16 @@ Reglas: `fecha` y `hora` obligatorios. `estado` solo admite `pendiente | confirm
 en su forma canónica (`Pendiente`, `Confirmada`, `Cancelada`, `Completada`); si no se envía, se asigna
 `Pendiente`. También se acepta `fechaHora` en formato `2026-08-01T10:00` en lugar del par `fecha` + `hora`.
 
+`idMascota` es obligatorio al crear (`400` si falta, `404` si no existe). `idCliente` es opcional: si se
+envía debe existir (`404`) y ser el dueño de la mascota (`400` si no coincide); si no se envía, se deduce
+del dueño de la mascota. **Los nombres de cliente y mascota se rellenan desde los datos guardados**, no se
+toman del cuerpo de la petición.
+
 **PUT parcial:** si el cuerpo solo trae `estado`, la fecha y la hora existentes se conservan
-(antes se perdía la hora).
+(antes se perdía la hora). Lo mismo aplica a los demás campos no enviados.
+
+**DELETE:** elimina la cita. Para **cancelarla sin borrarla**, use
+`PUT /api/citas/{id}` con `{"estado":"cancelada"}`.
 
 ---
 
@@ -169,7 +187,8 @@ en su forma canónica (`Pendiente`, `Confirmada`, `Cancelada`, `Completada`); si
 ```json
 { "nombre": "Collar antipulgas", "descripcion": "Talla M", "precio": 32000.0, "stock": 25, "idEstablecimiento": 2 }
 ```
-Reglas: `nombre` obligatorio.
+Reglas: `nombre` obligatorio. El `PUT` es parcial: `stock` (y el resto de campos) solo se
+modifica cuando se envía; antes, omitir `stock` lo dejaba en 0.
 
 ---
 

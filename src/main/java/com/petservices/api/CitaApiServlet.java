@@ -1,9 +1,15 @@
 package com.petservices.api;
 
 import com.petservices.dao.CitaDAO;
+import com.petservices.dao.ClienteDAO;
+import com.petservices.dao.IClienteDAO;
+import com.petservices.dao.IMascotaDAO;
 import com.petservices.dao.IServicioDAO;
+import com.petservices.dao.MascotaDAO;
 import com.petservices.dao.ServicioDAO;
 import com.petservices.modelo.Cita;
+import com.petservices.modelo.Cliente;
+import com.petservices.modelo.Mascota;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -25,16 +31,20 @@ import static com.petservices.api.util.ApiUtil.*;
  * GET    /api/citas?estado=X     -> filtra citas por estado (sin distinguir mayúsculas)
  * POST   /api/citas              -> agenda una cita (body JSON)
  * PUT    /api/citas/{id}         -> actualiza una cita (fecha/hora/estado)
- * DELETE /api/citas/{id}         -> cancela (elimina) una cita
+ * DELETE /api/citas/{id}         -> elimina definitivamente una cita
  *
- * Regla de negocio: el campo "estado" solo admite pendiente, confirmada,
- * cancelada y completada, sin distinguir mayúsculas ni espacios sobrantes.
- * El valor se normaliza a la forma canónica que usa el panel web
- * (Pendiente, Confirmada, Cancelada, Completada).
- *
- * El cuerpo de POST/PUT acepta "fechaHora" (formato 2026-08-20T10:00) o el
- * par "fecha" + "hora". En PUT, si solo se envía "estado", la fecha y la hora
- * existentes se conservan.
+ * Reglas:
+ *  - 'estado' admite pendiente, confirmada, cancelada y completada sin distinguir
+ *    mayúsculas; se guarda en su forma canónica.
+ *  - El cuerpo acepta "fechaHora" o el par "fecha" + "hora".
+ *  - 'idMascota' es obligatorio al crear; la mascota debe existir. Si se envía
+ *    'idCliente', debe existir y ser el dueño de la mascota. Si no se envía,
+ *    se deduce del dueño de la mascota.
+ *  - Los nombres de cliente y mascota se rellenan desde los DAO (no se confían
+ *    al cuerpo de la petición).
+ *  - El PUT es parcial: lo que no se envía conserva su valor.
+ *  - DELETE elimina la cita; para cancelarla sin borrarla use
+ *    PUT /api/citas/{id} con {"estado":"cancelada"}.
  *
  * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
  */
@@ -56,11 +66,16 @@ public class CitaApiServlet extends HttpServlet {
 
     private final CitaDAO citaDAO = new CitaDAO();
     private final IServicioDAO servicioDAO = new ServicioDAO();
+    private final IMascotaDAO mascotaDAO = new MascotaDAO();
+    private final IClienteDAO clienteDAO = new ClienteDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id != -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id != ID_AUSENTE) {
             Cita cita = citaDAO.buscarPorId(id);
             if (cita == null) {
                 enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Cita no encontrada con id " + id);
@@ -116,7 +131,11 @@ public class CitaApiServlet extends HttpServlet {
         Cita nueva = new Cita();
         nueva.setFechaHora(fechaHora);
         nueva.setEstado(estado);
-        datos.volcarEn(nueva, true);
+        datos.volcarEn(nueva);
+
+        if (!resolverRelaciones(datos, nueva, response, true)) {
+            return;
+        }
         citaDAO.insertar(nueva);
         enviarJson(response, HttpServletResponse.SC_CREATED, nueva);
     }
@@ -124,7 +143,10 @@ public class CitaApiServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id == -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/citas/{id}");
             return;
         }
@@ -168,7 +190,9 @@ public class CitaApiServlet extends HttpServlet {
             return;
         }
 
-        datos.volcarEn(existente, false);
+        if (!resolverRelaciones(datos, existente, response, false)) {
+            return;
+        }
         citaDAO.actualizar(existente);
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
@@ -176,7 +200,10 @@ public class CitaApiServlet extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id == -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/citas/{id}");
             return;
         }
@@ -186,6 +213,67 @@ public class CitaApiServlet extends HttpServlet {
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Cita no encontrada con id " + id);
         }
+    }
+
+    /**
+     * Valida mascota/cliente y rellena id y nombres denormalizados.
+     *
+     * @return {@code false} si ya se respondió con un error.
+     */
+    private boolean resolverRelaciones(CitaEntrada datos, Cita cita,
+                                       HttpServletResponse response, boolean esNueva) throws IOException {
+        Integer idMascota = datos.idMascota;
+        Integer idCliente = datos.idCliente;
+
+        if (esNueva && (idMascota == null || idMascota <= 0)) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "El campo 'idMascota' es obligatorio y debe ser mayor que 0");
+            return false;
+        }
+        if (idMascota != null && idMascota <= 0) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "El campo 'idMascota' debe ser mayor que 0");
+            return false;
+        }
+
+        Mascota mascota = null;
+        if (idMascota != null) {
+            mascota = mascotaDAO.buscarPorId(idMascota);
+            if (mascota == null) {
+                enviarError(response, HttpServletResponse.SC_NOT_FOUND,
+                        "La mascota con id " + idMascota + " no existe");
+                return false;
+            }
+            cita.setIdMascota(mascota.getIdMascota());
+            cita.setNombreMascota(mascota.getNombre());
+            if (idCliente == null && mascota.getIdCliente() > 0) {
+                idCliente = mascota.getIdCliente(); // se deduce del dueño de la mascota
+            }
+        } else if (!esNueva && cita.getIdMascota() > 0) {
+            mascota = mascotaDAO.buscarPorId(cita.getIdMascota());
+        }
+
+        if (idCliente != null) {
+            if (idCliente <= 0) {
+                enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "El campo 'idCliente' debe ser mayor que 0");
+                return false;
+            }
+            Cliente cliente = clienteDAO.buscarPorId(idCliente);
+            if (cliente == null) {
+                enviarError(response, HttpServletResponse.SC_NOT_FOUND,
+                        "El cliente con id " + idCliente + " no existe");
+                return false;
+            }
+            if (mascota != null && mascota.getIdCliente() != cliente.getIdCliente()) {
+                enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "La mascota " + mascota.getIdMascota() + " no pertenece al cliente " + idCliente);
+                return false;
+            }
+            cita.setIdCliente(cliente.getIdCliente());
+            cita.setNombreCliente(cliente.getNombre());
+        }
+        return true;
     }
 
     /** Devuelve el valor canónico del estado, o null si no es válido. */
@@ -212,8 +300,6 @@ public class CitaApiServlet extends HttpServlet {
         String estado;
         Integer idCliente;
         Integer idMascota;
-        String nombreCliente;
-        String nombreMascota;
         String servicio;
         Integer idServicio;
         Integer idEstablecimiento;
@@ -233,16 +319,12 @@ public class CitaApiServlet extends HttpServlet {
             return null;
         }
 
-        /** Copia los campos informados sobre la cita destino. */
-        void volcarEn(Cita cita, boolean esNueva) {
-            if (idCliente != null) cita.setIdCliente(idCliente);
-            if (idMascota != null) cita.setIdMascota(idMascota);
-            if (nombreCliente != null) cita.setNombreCliente(nombreCliente);
-            if (nombreMascota != null) cita.setNombreMascota(nombreMascota);
-            if (servicio != null) cita.setServicio(servicio);
+        /** Copia los campos simples (los id de cliente/mascota los resuelve el servlet). */
+        void volcarEn(Cita cita) {
+            if (servicio != null) cita.setServicio(servicio.trim());
             if (idServicio != null) cita.setIdServicio(idServicio);
             if (idEstablecimiento != null) cita.setIdEstablecimiento(idEstablecimiento);
-            if (esNueva && cita.getServicio() == null) {
+            if (cita.getServicio() == null) {
                 cita.setServicio("Consulta");
             }
         }

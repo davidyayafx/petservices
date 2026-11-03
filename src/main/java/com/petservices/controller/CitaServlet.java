@@ -17,7 +17,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @WebServlet("/citas")
@@ -25,8 +27,16 @@ public class CitaServlet extends BaseModuleServlet {
 
     private static final Set<String> SERVICIOS_VALIDOS = new HashSet<>(
             Arrays.asList("Consulta", "Vacunación", "Baño/Peluquería", "Cirugía"));
-    private static final Set<String> ESTADOS_VALIDOS = new HashSet<>(
-            Arrays.asList("Pendiente", "Confirmada", "Cancelada"));
+
+    /** Estado aceptado (clave en minúsculas) -> forma canónica que se guarda. */
+    private static final Map<String, String> ESTADOS_VALIDOS = new LinkedHashMap<>();
+
+    static {
+        ESTADOS_VALIDOS.put("pendiente",  "Pendiente");
+        ESTADOS_VALIDOS.put("confirmada", "Confirmada");
+        ESTADOS_VALIDOS.put("cancelada",  "Cancelada");
+        ESTADOS_VALIDOS.put("completada", "Completada");
+    }
 
     private final ICitaDAO citaDAO = new CitaDAO();
     private final IClienteDAO clienteDAO = new ClienteDAO();
@@ -133,9 +143,9 @@ public class CitaServlet extends BaseModuleServlet {
         int idMascota = parseEntero(request.getParameter("idMascota"));
         String fechaHora = limpiar(request.getParameter("fechaHora"));
         String servicio = limpiar(request.getParameter("servicio"));
-        String estado = limpiar(request.getParameter("estado"));
+        String estadoTexto = limpiar(request.getParameter("estado"));
 
-        if (idCliente <= 0 || idMascota <= 0 || fechaHora.isEmpty() || servicio.isEmpty() || estado.isEmpty()) {
+        if (idCliente <= 0 || idMascota <= 0 || fechaHora.isEmpty() || servicio.isEmpty() || estadoTexto.isEmpty()) {
             enviarMensaje(request, "❌ Todos los campos de la cita son obligatorios.", "error");
             return null;
         }
@@ -145,7 +155,10 @@ public class CitaServlet extends BaseModuleServlet {
             return null;
         }
 
-        if (!ESTADOS_VALIDOS.contains(estado)) {
+        // El estado se acepta sin distinguir mayúsculas y se guarda en forma canónica,
+        // igual que en la API (antes el panel solo aceptaba la forma capitalizada).
+        String estado = normalizarEstado(estadoTexto);
+        if (estado == null) {
             enviarMensaje(request, "❌ El estado de la cita no es válido.", "error");
             return null;
         }
@@ -182,5 +195,13 @@ public class CitaServlet extends BaseModuleServlet {
         request.setAttribute("listaClientes", clientes);
         request.setAttribute("listaMascotas", mascotas);
         request.getRequestDispatcher("/vistas/citas.jsp").forward(request, response);
+    }
+
+    /** Devuelve la forma canónica del estado, o null si no es válido. */
+    private static String normalizarEstado(String estado) {
+        if (estado == null) {
+            return null;
+        }
+        return ESTADOS_VALIDOS.get(estado.trim().toLowerCase());
     }
 }

@@ -87,8 +87,7 @@ Datos en memoria que se recrean en cada arranque:
 | `daniel@gmail.com` | `123456` |
 | `david@gmail.com` | `123456` |
 
-> El registro público (`/registro`) tiene un defecto conocido (ver *Limitaciones*); use estas
-> cuentas o `POST /api/clientes`.
+> También puedes crear una cuenta nueva desde `/registro` o con `POST /api/clientes`.
 
 ---
 
@@ -219,7 +218,6 @@ Arquitectura detallada en [`../DOCUMENTACION/ARQUITECTURA.md`](../DOCUMENTACION/
 
 - **Datos en memoria**: se reinician con las semillas (3 clientes, 4 mascotas, 4 citas,
   3 servicios, 4 productos, 3 establecimientos, 2 pedidos).
-- **`/registro` no crea cuentas** hoy (el JSP no envía el campo `confirmar` que exige el servlet).
 - **Contraseñas en texto plano** y **API sin autenticación**; sí se dejó de exponer `contrasena`.
 - **Sin pruebas unitarias** (`src/test` no existe); la verificación es `probar_api.ps1` (10 casos).
 - **Borrado por GET** en clientes y servicios (riesgo CSRF).

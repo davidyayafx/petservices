@@ -1,5 +1,6 @@
 package com.petservices.api;
 
+import com.petservices.dao.IProductoDAO;
 import com.petservices.dao.ProductoDAO;
 import com.petservices.modelo.Producto;
 
@@ -22,17 +23,23 @@ import static com.petservices.api.util.ApiUtil.*;
  * PUT    /api/productos/{id}            -> actualiza un producto (body JSON)
  * DELETE /api/productos/{id}            -> elimina un producto
  *
+ * El PUT es parcial: los campos que no se envían conservan su valor
+ * (antes, omitir 'stock' lo dejaba en 0).
+ *
  * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
  */
 @WebServlet("/api/productos/*")
 public class ProductoApiServlet extends HttpServlet {
 
-    private final ProductoDAO productoDAO = new ProductoDAO();
+    private final IProductoDAO productoDAO = new ProductoDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id != -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id != ID_AUSENTE) {
             Producto p = productoDAO.buscarPorId(id);
             if (p == null) {
                 enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Producto no encontrado con id " + id);
@@ -60,15 +67,18 @@ public class ProductoApiServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
         request.setCharacterEncoding("UTF-8");
-        Producto nuevo = leerJson(request, Producto.class);
-        if (nuevo == null) {
+        ProductoEntrada datos = leerJson(request, ProductoEntrada.class);
+        if (datos == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (nuevo.getNombre() == null) {
+        if (datos.nombre == null || datos.nombre.trim().isEmpty()) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "El campo 'nombre' es obligatorio");
             return;
         }
+
+        Producto nuevo = new Producto();
+        datos.volcarEn(nuevo);
         productoDAO.insertar(nuevo);
         enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
     }
@@ -76,7 +86,10 @@ public class ProductoApiServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id == -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/productos/{id}");
             return;
         }
@@ -86,16 +99,13 @@ public class ProductoApiServlet extends HttpServlet {
             return;
         }
         request.setCharacterEncoding("UTF-8");
-        Producto datos = leerJson(request, Producto.class);
+        ProductoEntrada datos = leerJson(request, ProductoEntrada.class);
         if (datos == null) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
-        if (datos.getDescripcion() != null) existente.setDescripcion(datos.getDescripcion());
-        if (datos.getPrecio() != 0) existente.setPrecio(datos.getPrecio());
-        if (datos.getEstado() != null) existente.setEstado(datos.getEstado());
-        existente.setStock(datos.getStock());
+
+        datos.volcarEn(existente);
         productoDAO.actualizar(existente);
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
@@ -103,7 +113,10 @@ public class ProductoApiServlet extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
         int id = extraerId(request);
-        if (id == -1) {
+        if (!idRutaValido(response, id)) {
+            return;
+        }
+        if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/productos/{id}");
             return;
         }
@@ -112,6 +125,32 @@ public class ProductoApiServlet extends HttpServlet {
             enviarJson(response, HttpServletResponse.SC_OK, new MensajeDTO("Producto eliminado correctamente"));
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Producto no encontrado con id " + id);
+        }
+    }
+
+    /**
+     * Cuerpo de entrada de POST/PUT. Usa tipos envoltorio para distinguir
+     * "campo no enviado" (null) de un valor real, incluido 0.
+     */
+    static class ProductoEntrada {
+        String nombre;
+        String categoria;
+        String descripcion;
+        Double precio;
+        Integer stock;
+        String estado;
+        Integer idEstablecimiento;
+        Integer idCliente;
+
+        void volcarEn(Producto producto) {
+            if (nombre != null) producto.setNombre(nombre.trim());
+            if (categoria != null) producto.setCategoria(categoria.trim());
+            if (descripcion != null) producto.setDescripcion(descripcion.trim());
+            if (precio != null) producto.setPrecio(precio);
+            if (stock != null) producto.setStock(stock);
+            if (estado != null) producto.setEstado(estado.trim());
+            if (idEstablecimiento != null) producto.setIdEstablecimiento(idEstablecimiento);
+            if (idCliente != null) producto.setIdCliente(idCliente);
         }
     }
 }

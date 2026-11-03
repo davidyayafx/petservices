@@ -36,7 +36,7 @@
             String est = (c.getEstado() == null) ? "" : c.getEstado().toLowerCase();
             if (est.contains("pend")) pendientes++;
             else if (est.contains("conf")) confirmadas++;
-            else if (est.contains("real")) realizadas++;
+            else if (est.contains("real") || est.contains("complet")) realizadas++;
             else if (est.contains("canc")) canceladas++;
         }
     }
@@ -183,6 +183,7 @@
                                 <option value="Pendiente"  <%= "Pendiente".equalsIgnoreCase(est) ? "selected" : "" %>>Pendiente</option>
                                 <option value="Confirmada" <%= "Confirmada".equalsIgnoreCase(est) ? "selected" : "" %>>Confirmada</option>
                                 <option value="Cancelada"  <%= "Cancelada".equalsIgnoreCase(est) ? "selected" : "" %>>Cancelada</option>
+                                <option value="Completada" <%= "Completada".equalsIgnoreCase(est) ? "selected" : "" %>>Completada</option>
                             </select>
                         </div>
                     </div>
