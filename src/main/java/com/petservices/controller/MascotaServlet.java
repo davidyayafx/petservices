@@ -149,6 +149,12 @@ public class MascotaServlet extends BaseModuleServlet {
             return;
         }
 
+        if (mascotaDAO.tieneCitas(id)) {
+            // Protección de integridad: no dejar citas apuntando a una mascota inexistente.
+            enviarMensaje(request, "❌ No se puede eliminar la mascota: tiene citas asociadas.", "error");
+            return;
+        }
+
         if (mascotaDAO.eliminar(id)) {
             enviarMensaje(request, "✅ Mascota eliminada correctamente.", "exito");
         } else {

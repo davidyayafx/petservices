@@ -54,11 +54,16 @@ public class EstablecimientoApiServlet extends HttpServlet {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (nuevo.getNombre() == null || nuevo.getTipo() == null) {
+        if (nuevo.getNombre() == null || nuevo.getNombre().trim().isEmpty()
+                || nuevo.getTipo() == null || nuevo.getTipo().trim().isEmpty()) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'nombre' y 'tipo' son obligatorios");
             return;
         }
-        establecimientoDAO.insertar(nuevo);
+        if (!establecimientoDAO.insertar(nuevo)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "Ya existe un establecimiento con ese nombre");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
     }
 
@@ -87,7 +92,17 @@ public class EstablecimientoApiServlet extends HttpServlet {
         if (datos.getTipo() != null) existente.setTipo(datos.getTipo());
         if (datos.getDireccion() != null) existente.setDireccion(datos.getDireccion());
         if (datos.getTelefono() != null) existente.setTelefono(datos.getTelefono());
-        establecimientoDAO.actualizar(existente);
+        if (existente.getNombre() == null || existente.getNombre().trim().isEmpty()
+                || existente.getTipo() == null || existente.getTipo().trim().isEmpty()) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Los campos 'nombre' y 'tipo' no pueden quedar vacíos");
+            return;
+        }
+        if (!establecimientoDAO.actualizar(existente)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se pudo actualizar: el nombre ya existe o los datos no son válidos");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
 

@@ -10,6 +10,7 @@ import com.petservices.modelo.Cliente;
 import com.petservices.modelo.DetallePedido;
 import com.petservices.modelo.Pedido;
 import com.petservices.modelo.Producto;
+import com.petservices.service.PedidoService;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -32,6 +33,7 @@ public class PedidoServlet extends BaseModuleServlet {
     private final IPedidoDAO pedidoDAO = new PedidoDAO();
     private final IClienteDAO clienteDAO = new ClienteDAO();
     private final IProductoDAO productoDAO = new ProductoDAO();
+    private final PedidoService pedidoService = new PedidoService();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -89,11 +91,13 @@ public class PedidoServlet extends BaseModuleServlet {
             return;
         }
 
-        if (pedidoDAO.insertar(pedido)) {
-            descontarStock(pedido);
+        try {
+            pedidoService.crear(pedido);
             enviarMensaje(request, "✅ Pedido registrado correctamente.", "exito");
-        } else {
-            enviarMensaje(request, "❌ No fue posible registrar el pedido.", "error");
+        } catch (PedidoService.StockInsuficienteException e) {
+            enviarMensaje(request, "❌ " + e.getMessage(), "error");
+        } catch (PedidoService.DatosPedidoInvalidosException e) {
+            enviarMensaje(request, "❌ " + e.getMessage(), "error");
         }
     }
 
@@ -112,14 +116,17 @@ public class PedidoServlet extends BaseModuleServlet {
         }
 
         pedido.setIdPedido(id);
-        if (pedidoDAO.actualizar(pedido)) {
-            // El pedido anterior devuelve su stock y el nuevo lo descuenta.
-            devolverStock(existente);
-            descontarStock(pedido);
+        try {
+            pedidoService.actualizarConDetalle(id, pedido);
             enviarMensaje(request, "✅ Pedido actualizado correctamente.", "exito");
-        } else {
-            enviarMensaje(request, "❌ No se pudo actualizar el pedido.", "error");
+        } catch (PedidoService.StockInsuficienteException e) {
+            enviarMensaje(request, "❌ " + e.getMessage(), "error");
             request.setAttribute("pedidoEditar", existente);
+        } catch (PedidoService.DatosPedidoInvalidosException e) {
+            enviarMensaje(request, "❌ " + e.getMessage(), "error");
+            request.setAttribute("pedidoEditar", existente);
+        } catch (PedidoService.PedidoNoEncontradoException e) {
+            enviarMensaje(request, "❌ " + e.getMessage(), "error");
         }
     }
 
@@ -130,9 +137,7 @@ public class PedidoServlet extends BaseModuleServlet {
             return;
         }
 
-        Pedido pedido = pedidoDAO.buscarPorId(id);
-        if (pedidoDAO.eliminar(id)) {
-            devolverStock(pedido);
+        if (pedidoService.eliminar(id)) {
             enviarMensaje(request, "✅ Pedido eliminado correctamente.", "exito");
         } else {
             enviarMensaje(request, "❌ No se encontró el pedido a eliminar.", "error");
@@ -168,21 +173,7 @@ public class PedidoServlet extends BaseModuleServlet {
             return null;
         }
 
-        // ── Stock: validar disponibilidad (devolviendo lo que ya tenía el pedido) ──
-        int stockDisponible = producto.getStock();
-        if (idActual > 0) {
-            Pedido anterior = pedidoDAO.buscarPorId(idActual);
-            if (anterior != null && !anterior.getDetalles().isEmpty()
-                    && anterior.getDetalles().get(0).getIdProducto() == producto.getIdProducto()) {
-                stockDisponible += anterior.getCantidad();
-            }
-        }
-        if (cantidad > stockDisponible) {
-            enviarMensaje(request, "❌ No hay stock suficiente: disponible " + stockDisponible
-                    + ", solicitado " + cantidad + ".", "error");
-            return null;
-        }
-
+        // El stock se valida y descuenta de forma transaccional en PedidoService.
         double total = producto.getPrecio() * cantidad;
         DetallePedido detalle = new DetallePedido(producto.getIdProducto(), producto.getNombre(), cantidad, producto.getPrecio());
 
@@ -192,34 +183,6 @@ public class PedidoServlet extends BaseModuleServlet {
         pedido.setDetalles(new ArrayList<>());
         pedido.getDetalles().add(detalle);
         return pedido;
-    }
-
-    /** Descuenta del inventario la cantidad del pedido. */
-    private void descontarStock(Pedido pedido) {
-        if (pedido == null || pedido.getDetalles().isEmpty()) {
-            return;
-        }
-        DetallePedido detalle = pedido.getDetalles().get(0);
-        Producto producto = productoDAO.buscarPorId(detalle.getIdProducto());
-        if (producto == null) {
-            return;
-        }
-        producto.setStock(Math.max(0, producto.getStock() - pedido.getCantidad()));
-        productoDAO.actualizar(producto);
-    }
-
-    /** Devuelve al inventario la cantidad del pedido (al editar o eliminar). */
-    private void devolverStock(Pedido pedido) {
-        if (pedido == null || pedido.getDetalles().isEmpty()) {
-            return;
-        }
-        DetallePedido detalle = pedido.getDetalles().get(0);
-        Producto producto = productoDAO.buscarPorId(detalle.getIdProducto());
-        if (producto == null) {
-            return;
-        }
-        producto.setStock(producto.getStock() + pedido.getCantidad());
-        productoDAO.actualizar(producto);
     }
 
     private void cargarVista(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

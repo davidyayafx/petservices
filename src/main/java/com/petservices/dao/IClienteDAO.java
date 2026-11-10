@@ -19,4 +19,7 @@ public interface IClienteDAO {
     boolean eliminar(int id);
 
     Cliente validarLogin(String correo, String contrasena);
+
+    /** Indica si el cliente tiene mascotas o citas que impiden su borrado. */
+    boolean tieneDependencias(int id);
 }

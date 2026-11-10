@@ -1,71 +1,117 @@
 package com.petservices.dao;
 
+import com.petservices.db.BaseDatos;
+import com.petservices.db.BaseDatosException;
+import com.petservices.db.Jdbc;
 import com.petservices.modelo.Servicio;
 
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * DAO: ServicioDAO — simulación en memoria sobre {@link ConcurrentHashMap},
- * con la misma estrategia que ClienteDAO, MascotaDAO y CitaDAO
- * (hilo-seguro e interfaz {@link IServicioDAO}).
- *
- * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
+ * DAO del catálogo de servicios sobre SQLite.
+ * Evita duplicados por combinación de tipo y nombre.
  */
 public class ServicioDAO implements IServicioDAO {
 
-    private static final ConcurrentHashMap<Long, Servicio> BASE_DATOS = new ConcurrentHashMap<>();
-    private static final AtomicLong CONTADOR_ID = new AtomicLong(1);
-
-    static {
-        guardarDummy("Consulta", "Vacunación antirrábica", null);
-        guardarDummy("Baño y corte", "Grooming completo", null);
-        guardarDummy("Cirugía", "Esterilización", null);
-    }
-
-    private static void guardarDummy(String tipo, String nombre, Integer idMascota) {
-        long id = CONTADOR_ID.getAndIncrement();
-        Servicio servicio = new Servicio((int) id, tipo, nombre, idMascota);
-        BASE_DATOS.put(id, servicio);
-    }
+    private static final String COLUMNAS = "id_servicio, tipo, nombre, id_mascota";
 
     @Override
     public boolean insertar(Servicio servicio) {
-        if (servicio == null) {
+        if (!datosValidos(servicio)) {
             return false;
         }
-        long id = CONTADOR_ID.getAndIncrement();
-        servicio.setIdServicio((int) id);
-        BASE_DATOS.put(id, servicio);
-        return true;
+        Integer idMascota = normalizarId(servicio.getIdMascota());
+        String sql = "INSERT INTO servicios (tipo, nombre, id_mascota) VALUES (?, ?, ?)";
+        try (Connection conexion = BaseDatos.conexion()) {
+            long id = Jdbc.insertar(conexion, sql, servicio.getTipo().trim(),
+                    servicio.getNombre().trim(), idMascota);
+            servicio.setIdServicio((int) id);
+            servicio.setIdMascota(idMascota);
+            return true;
+        } catch (SQLException e) {
+            if (BaseDatosException.esDuplicado(e) || BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "insertar servicio");
+        }
     }
 
     @Override
     public List<Servicio> listarTodos() {
-        List<Servicio> lista = new ArrayList<>(BASE_DATOS.values());
-        lista.sort(Comparator.comparingInt(Servicio::getIdServicio));
-        return lista;
+        String sql = "SELECT " + COLUMNAS + " FROM servicios ORDER BY id_servicio";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.lista(conexion, sql, ServicioDAO::mapear);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "listar servicios");
+        }
     }
 
     @Override
     public Servicio buscarPorId(int id) {
-        return BASE_DATOS.get((long) id);
+        if (id <= 0) {
+            return null;
+        }
+        String sql = "SELECT " + COLUMNAS + " FROM servicios WHERE id_servicio = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.uno(conexion, sql, ServicioDAO::mapear, id);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "buscar servicio por id");
+        }
     }
 
     @Override
     public boolean actualizar(Servicio servicio) {
-        if (servicio == null || !BASE_DATOS.containsKey((long) servicio.getIdServicio())) {
+        if (!datosValidos(servicio) || servicio.getIdServicio() <= 0) {
             return false;
         }
-        BASE_DATOS.put((long) servicio.getIdServicio(), servicio);
-        return true;
+        if (buscarPorId(servicio.getIdServicio()) == null) {
+            return false;
+        }
+        Integer idMascota = normalizarId(servicio.getIdMascota());
+        String sql = "UPDATE servicios SET tipo = ?, nombre = ?, id_mascota = ? "
+                + "WHERE id_servicio = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            int filas = Jdbc.ejecutar(conexion, sql, servicio.getTipo().trim(),
+                    servicio.getNombre().trim(), idMascota, servicio.getIdServicio());
+            return filas > 0;
+        } catch (SQLException e) {
+            if (BaseDatosException.esDuplicado(e) || BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "actualizar servicio");
+        }
     }
 
     @Override
     public boolean eliminar(int id) {
-        return BASE_DATOS.remove((long) id) != null;
+        if (id <= 0) {
+            return false;
+        }
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.ejecutar(conexion, "DELETE FROM servicios WHERE id_servicio = ?", id) > 0;
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "eliminar servicio");
+        }
+    }
+
+    private static boolean datosValidos(Servicio servicio) {
+        return servicio != null
+                && servicio.getTipo() != null && !servicio.getTipo().trim().isEmpty()
+                && servicio.getNombre() != null && !servicio.getNombre().trim().isEmpty();
+    }
+
+    private static Integer normalizarId(Integer id) {
+        return id == null || id <= 0 ? null : id;
+    }
+
+    private static Servicio mapear(ResultSet resultado) throws SQLException {
+        return new Servicio(
+                resultado.getInt("id_servicio"),
+                resultado.getString("tipo"),
+                resultado.getString("nombre"),
+                Jdbc.enteroNullable(resultado, "id_mascota"));
     }
 }

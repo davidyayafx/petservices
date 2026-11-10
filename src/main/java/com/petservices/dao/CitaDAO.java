@@ -1,69 +1,205 @@
 package com.petservices.dao;
 
+import com.petservices.db.BaseDatos;
+import com.petservices.db.BaseDatosException;
+import com.petservices.db.Jdbc;
 import com.petservices.modelo.Cita;
 
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Locale;
 
+/**
+ * DAO de citas sobre SQLite.
+ * Valida y recalcula los nombres denormalizados de cliente y mascota desde las
+ * tablas relacionadas, y evita citas duplicadas para la misma mascota/horario.
+ */
 public class CitaDAO implements ICitaDAO {
 
-    private static final ConcurrentHashMap<Long, Cita> BASE_DATOS = new ConcurrentHashMap<>();
-    private static final AtomicLong CONTADOR_ID = new AtomicLong(1);
-
-    static {
-        guardarDummy(1, "Alejandro Puerto", 1, "Max", "2026-08-20T10:00", "Consulta", "Confirmada");
-        guardarDummy(2, "Daniel Mejia", 2, "Luna", "2026-08-22T14:30", "Vacunación", "Pendiente");
-        guardarDummy(1, "Alejandro Puerto", 3, "Rocky", "2026-08-25T09:00", "Baño/Peluquería", "Pendiente");
-        guardarDummy(3, "David Yaya", 4, "Thor", "2026-08-28T11:00", "Cirugía", "Cancelada");
-    }
-
-    private static void guardarDummy(int idCliente, String nombreCliente, int idMascota, String nombreMascota,
-                                     String fechaHora, String servicio, String estado) {
-        long id = CONTADOR_ID.getAndIncrement();
-        Cita cita = new Cita((int) id, idCliente, nombreCliente, idMascota, nombreMascota, fechaHora, servicio, estado);
-        BASE_DATOS.put(id, cita);
-    }
+    private static final String COLUMNAS =
+            "id_cita, id_cliente, nombre_cliente, id_mascota, nombre_mascota, "
+            + "fecha_hora, servicio, estado, id_establecimiento, id_servicio";
 
     @Override
     public boolean insertar(Cita cita) {
-        if (cita == null) {
+        if (!datosValidos(cita)) {
             return false;
         }
-        long id = CONTADOR_ID.getAndIncrement();
-        cita.setIdCita((int) id);
-        if (cita.getEstado() == null || cita.getEstado().trim().isEmpty()) {
-            cita.setEstado("Pendiente");
+        String estado = normalizarEstado(cita.getEstado());
+        if (estado == null) {
+            return false;
         }
-        BASE_DATOS.put(id, cita);
-        return true;
+        String[] relaciones = resolverRelaciones(cita.getIdCliente(), cita.getIdMascota());
+        if (relaciones == null) {
+            return false;
+        }
+
+        cita.setNombreCliente(relaciones[0]);
+        cita.setNombreMascota(relaciones[1]);
+        cita.setFechaHora(cita.getFechaHora().trim());
+        cita.setServicio(cita.getServicio().trim());
+        cita.setEstado(estado);
+        Integer idEstablecimiento = normalizarId(cita.getIdEstablecimiento());
+        Integer idServicio = normalizarId(cita.getIdServicio());
+
+        String sql = "INSERT INTO citas "
+                + "(id_cliente, nombre_cliente, id_mascota, nombre_mascota, fecha_hora, "
+                + " servicio, estado, id_establecimiento, id_servicio) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conexion = BaseDatos.conexion()) {
+            long id = Jdbc.insertar(conexion, sql, cita.getIdCliente(), relaciones[0],
+                    cita.getIdMascota(), relaciones[1], cita.getFechaHora(), cita.getServicio(),
+                    estado, idEstablecimiento, idServicio);
+            cita.setIdCita((int) id);
+            cita.setIdEstablecimiento(idEstablecimiento == null ? 0 : idEstablecimiento);
+            cita.setIdServicio(idServicio == null ? 0 : idServicio);
+            return true;
+        } catch (SQLException e) {
+            if (BaseDatosException.esDuplicado(e) || BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "insertar cita");
+        }
     }
 
     @Override
     public List<Cita> listarTodos() {
-        List<Cita> lista = new ArrayList<>(BASE_DATOS.values());
-        lista.sort(Comparator.comparingInt(Cita::getIdCita));
-        return lista;
+        String sql = "SELECT " + COLUMNAS + " FROM citas ORDER BY id_cita";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.lista(conexion, sql, CitaDAO::mapear);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "listar citas");
+        }
     }
 
     @Override
     public Cita buscarPorId(int id) {
-        return BASE_DATOS.get((long) id);
+        if (id <= 0) {
+            return null;
+        }
+        String sql = "SELECT " + COLUMNAS + " FROM citas WHERE id_cita = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.uno(conexion, sql, CitaDAO::mapear, id);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "buscar cita por id");
+        }
     }
 
     @Override
     public boolean actualizar(Cita cita) {
-        if (cita == null || !BASE_DATOS.containsKey((long) cita.getIdCita())) {
+        if (!datosValidos(cita) || cita.getIdCita() <= 0) {
             return false;
         }
-        BASE_DATOS.put((long) cita.getIdCita(), cita);
-        return true;
+        if (buscarPorId(cita.getIdCita()) == null) {
+            return false;
+        }
+        String estado = normalizarEstado(cita.getEstado());
+        if (estado == null) {
+            return false;
+        }
+        String[] relaciones = resolverRelaciones(cita.getIdCliente(), cita.getIdMascota());
+        if (relaciones == null) {
+            return false;
+        }
+
+        cita.setNombreCliente(relaciones[0]);
+        cita.setNombreMascota(relaciones[1]);
+        cita.setFechaHora(cita.getFechaHora().trim());
+        cita.setServicio(cita.getServicio().trim());
+        cita.setEstado(estado);
+        Integer idEstablecimiento = normalizarId(cita.getIdEstablecimiento());
+        Integer idServicio = normalizarId(cita.getIdServicio());
+
+        String sql = "UPDATE citas SET id_cliente = ?, nombre_cliente = ?, id_mascota = ?, "
+                + "nombre_mascota = ?, fecha_hora = ?, servicio = ?, estado = ?, "
+                + "id_establecimiento = ?, id_servicio = ? WHERE id_cita = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            int filas = Jdbc.ejecutar(conexion, sql, cita.getIdCliente(), relaciones[0],
+                    cita.getIdMascota(), relaciones[1], cita.getFechaHora(), cita.getServicio(),
+                    estado, idEstablecimiento, idServicio, cita.getIdCita());
+            return filas > 0;
+        } catch (SQLException e) {
+            if (BaseDatosException.esDuplicado(e) || BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "actualizar cita");
+        }
     }
 
     @Override
     public boolean eliminar(int id) {
-        return BASE_DATOS.remove((long) id) != null;
+        if (id <= 0) {
+            return false;
+        }
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.ejecutar(conexion, "DELETE FROM citas WHERE id_cita = ?", id) > 0;
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "eliminar cita");
+        }
+    }
+
+    private static boolean datosValidos(Cita cita) {
+        return cita != null
+                && cita.getIdCliente() > 0
+                && cita.getIdMascota() > 0
+                && cita.getFechaHora() != null && !cita.getFechaHora().trim().isEmpty()
+                && cita.getServicio() != null && !cita.getServicio().trim().isEmpty();
+    }
+
+    /**
+     * Comprueba que el cliente y la mascota existan y que la mascota pertenezca
+     * al cliente. Devuelve [nombreCliente, nombreMascota] o null.
+     */
+    private static String[] resolverRelaciones(int idCliente, int idMascota) {
+        String sql = "SELECT c.nombre AS cliente, m.nombre AS mascota "
+                + "FROM clientes c JOIN mascotas m ON m.id_cliente = c.id_cliente "
+                + "WHERE c.id_cliente = ? AND m.id_mascota = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.uno(conexion, sql,
+                    rs -> new String[]{rs.getString("cliente"), rs.getString("mascota")},
+                    idCliente, idMascota);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "resolver relaciones de la cita");
+        }
+    }
+
+    /** Acepta el estado sin distinguir mayúsculas y devuelve su forma canónica. */
+    private static String normalizarEstado(String estado) {
+        if (estado == null || estado.trim().isEmpty()) {
+            return "Pendiente";
+        }
+        switch (estado.trim().toLowerCase(Locale.ROOT)) {
+            case "pendiente":
+                return "Pendiente";
+            case "confirmada":
+                return "Confirmada";
+            case "cancelada":
+                return "Cancelada";
+            case "completada":
+                return "Completada";
+            default:
+                return null;
+        }
+    }
+
+    private static Integer normalizarId(int id) {
+        return id <= 0 ? null : id;
+    }
+
+    private static Cita mapear(ResultSet resultado) throws SQLException {
+        Cita cita = new Cita(
+                resultado.getInt("id_cita"),
+                resultado.getInt("id_cliente"),
+                resultado.getString("nombre_cliente"),
+                resultado.getInt("id_mascota"),
+                resultado.getString("nombre_mascota"),
+                resultado.getString("fecha_hora"),
+                resultado.getString("servicio"),
+                resultado.getString("estado"));
+        cita.setIdEstablecimiento(resultado.getInt("id_establecimiento"));
+        cita.setIdServicio(resultado.getInt("id_servicio"));
+        return cita;
     }
 }

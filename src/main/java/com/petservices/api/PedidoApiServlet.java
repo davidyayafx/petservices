@@ -10,6 +10,7 @@ import com.petservices.modelo.Cliente;
 import com.petservices.modelo.DetallePedido;
 import com.petservices.modelo.Pedido;
 import com.petservices.modelo.Producto;
+import com.petservices.service.PedidoService;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -27,12 +28,15 @@ import static com.petservices.api.util.ApiUtil.*;
  * GET    /api/pedidos       -> lista todos los pedidos
  * GET    /api/pedidos/{id}  -> obtiene un pedido por id
  * POST   /api/pedidos       -> crea un pedido (body JSON)
- * PUT    /api/pedidos/{id}  -> actualiza el estado/datos de un pedido
+ * PUT    /api/pedidos/{id}  -> actualiza el estado, el total o el producto/cantidad
  * DELETE /api/pedidos/{id}  -> elimina un pedido y devuelve su stock
  *
  * Si el POST incluye "idProducto" y "cantidad", el servidor valida el stock,
- * calcula el total con el precio vigente y descuenta las unidades. Sin esos
- * campos se mantiene el comportamiento anterior (total enviado a mano).
+ * calcula el total con el precio vigente y descuenta las unidades en una
+ * transacción. Sin esos campos se mantiene el modo anterior (total manual).
+ *
+ * Si el PUT incluye "idProducto" o "cantidad", se reemplaza el detalle y se
+ * ajusta el stock; si solo incluye "estado"/"total", no se toca el inventario.
  *
  * Proyecto: PetServices - SENA GA7-220501096-AA5-EV03
  */
@@ -42,6 +46,7 @@ public class PedidoApiServlet extends HttpServlet {
     private final IPedidoDAO pedidoDAO = new PedidoDAO();
     private final IProductoDAO productoDAO = new ProductoDAO();
     private final IClienteDAO clienteDAO = new ClienteDAO();
+    private final PedidoService pedidoService = new PedidoService();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -75,21 +80,35 @@ public class PedidoApiServlet extends HttpServlet {
             return;
         }
 
-        // ── Modo anterior: total enviado manualmente ──
+        // ── Modo anterior: total enviado manualmente, sin detalle ni stock ──
         if (datos.total == null || datos.total <= 0) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "El campo 'total' debe ser mayor que 0");
             return;
         }
+        Cliente cliente = null;
+        if (datos.idCliente != null && datos.idCliente > 0) {
+            cliente = clienteDAO.buscarPorId(datos.idCliente);
+            if (cliente == null) {
+                enviarError(response, HttpServletResponse.SC_NOT_FOUND,
+                        "El cliente con id " + datos.idCliente + " no existe");
+                return;
+            }
+        }
         Pedido nuevo = new Pedido(
-                datos.idCliente == null ? 0 : datos.idCliente,
-                datos.nombreCliente,
+                cliente == null ? 0 : cliente.getIdCliente(),
+                cliente == null ? datos.nombreCliente : cliente.getNombre(),
                 datos.fecha == null ? LocalDate.now().toString() : datos.fecha,
                 datos.total,
                 datos.estado == null ? "Pendiente" : datos.estado);
         if (datos.cantidad != null) {
             nuevo.setCantidad(datos.cantidad);
         }
-        pedidoDAO.insertar(nuevo);
+        try {
+            pedidoService.crearSinDetalle(nuevo);
+        } catch (PedidoService.DatosPedidoInvalidosException e) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
     }
 
@@ -106,12 +125,6 @@ public class PedidoApiServlet extends HttpServlet {
                     "El producto con id " + datos.idProducto + " no existe");
             return;
         }
-        if (datos.cantidad > producto.getStock()) {
-            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
-                    "Stock insuficiente: disponible " + producto.getStock()
-                            + ", solicitado " + datos.cantidad);
-            return;
-        }
 
         Cliente cliente = null;
         if (datos.idCliente != null && datos.idCliente > 0) {
@@ -123,21 +136,27 @@ public class PedidoApiServlet extends HttpServlet {
             }
         }
 
-        double total = producto.getPrecio() * datos.cantidad;
         Pedido nuevo = new Pedido(
                 cliente == null ? 0 : cliente.getIdCliente(),
                 cliente == null ? datos.nombreCliente : cliente.getNombre(),
                 datos.fecha == null ? LocalDate.now().toString() : datos.fecha,
-                total,
+                0,
                 datos.estado == null ? "Pendiente" : datos.estado);
+        nuevo.setIdEstablecimiento(datos.idEstablecimiento == null ? 0 : datos.idEstablecimiento);
         nuevo.setCantidad(datos.cantidad);
         nuevo.setDetalles(new ArrayList<>());
         nuevo.getDetalles().add(new DetallePedido(
                 producto.getIdProducto(), producto.getNombre(), datos.cantidad, producto.getPrecio()));
 
-        pedidoDAO.insertar(nuevo);
-        producto.setStock(producto.getStock() - datos.cantidad);
-        productoDAO.actualizar(producto);
+        try {
+            pedidoService.crear(nuevo);
+        } catch (PedidoService.StockInsuficienteException e) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return;
+        } catch (PedidoService.DatosPedidoInvalidosException e) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
     }
 
@@ -162,11 +181,72 @@ public class PedidoApiServlet extends HttpServlet {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (datos.estado != null) existente.setEstado(datos.estado);
-        if (datos.total != null && datos.total > 0) existente.setTotal(datos.total);
-        if (datos.cantidad != null && datos.cantidad > 0) existente.setCantidad(datos.cantidad);
-        pedidoDAO.actualizar(existente);
-        enviarJson(response, HttpServletResponse.SC_OK, existente);
+
+        boolean cambiaDetalle = (datos.idProducto != null && datos.idProducto > 0)
+                || datos.cantidad != null;
+        if (cambiaDetalle) {
+            actualizarConDetalle(existente, datos, response);
+            return;
+        }
+
+        try {
+            Pedido actualizado = pedidoService.actualizarSinDetalle(id, datos.estado, datos.total);
+            enviarJson(response, HttpServletResponse.SC_OK, actualizado);
+        } catch (PedidoService.DatosPedidoInvalidosException e) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+        } catch (PedidoService.PedidoNoEncontradoException e) {
+            enviarError(response, HttpServletResponse.SC_NOT_FOUND, e.getMessage());
+        }
+    }
+
+    private void actualizarConDetalle(Pedido existente, PedidoEntrada datos,
+                                      HttpServletResponse response) throws IOException {
+        Integer idProducto = datos.idProducto;
+        if (idProducto == null || idProducto <= 0) {
+            if (existente.getDetalles() == null || existente.getDetalles().isEmpty()) {
+                enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                        "Para cambiar la cantidad debes indicar 'idProducto'");
+                return;
+            }
+            idProducto = existente.getDetalles().get(0).getIdProducto();
+        }
+        Producto producto = productoDAO.buscarPorId(idProducto);
+        if (producto == null) {
+            enviarError(response, HttpServletResponse.SC_NOT_FOUND,
+                    "El producto con id " + idProducto + " no existe");
+            return;
+        }
+        int cantidad = datos.cantidad != null ? datos.cantidad : existente.getCantidad();
+        if (cantidad <= 0) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "La cantidad debe ser mayor que 0");
+            return;
+        }
+
+        Pedido nuevo = new Pedido(existente.getIdPedido(), existente.getIdCliente(),
+                existente.getNombreCliente(),
+                datos.fecha != null && !datos.fecha.trim().isEmpty()
+                        ? datos.fecha : existente.getFecha(),
+                0,
+                datos.estado != null && !datos.estado.trim().isEmpty()
+                        ? datos.estado : existente.getEstado());
+        nuevo.setIdEstablecimiento(datos.idEstablecimiento != null
+                ? datos.idEstablecimiento : existente.getIdEstablecimiento());
+        nuevo.setCantidad(cantidad);
+        nuevo.setDetalles(new ArrayList<>());
+        nuevo.getDetalles().add(new DetallePedido(
+                producto.getIdProducto(), producto.getNombre(), cantidad, producto.getPrecio()));
+
+        try {
+            Pedido actualizado = pedidoService.actualizarConDetalle(existente.getIdPedido(), nuevo);
+            enviarJson(response, HttpServletResponse.SC_OK, actualizado);
+        } catch (PedidoService.StockInsuficienteException e) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+        } catch (PedidoService.DatosPedidoInvalidosException e) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+        } catch (PedidoService.PedidoNoEncontradoException e) {
+            enviarError(response, HttpServletResponse.SC_NOT_FOUND, e.getMessage());
+        }
     }
 
     @Override
@@ -179,27 +259,11 @@ public class PedidoApiServlet extends HttpServlet {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id en la URL: /api/pedidos/{id}");
             return;
         }
-        Pedido pedido = pedidoDAO.buscarPorId(id);
-        boolean eliminado = pedidoDAO.eliminar(id);
-        if (eliminado) {
-            devolverStock(pedido);
+        if (pedidoService.eliminar(id)) {
             enviarJson(response, HttpServletResponse.SC_OK, new MensajeDTO("Pedido eliminado correctamente"));
         } else {
             enviarError(response, HttpServletResponse.SC_NOT_FOUND, "Pedido no encontrado con id " + id);
         }
-    }
-
-    private void devolverStock(Pedido pedido) {
-        if (pedido == null || pedido.getDetalles() == null || pedido.getDetalles().isEmpty()) {
-            return;
-        }
-        DetallePedido detalle = pedido.getDetalles().get(0);
-        Producto producto = productoDAO.buscarPorId(detalle.getIdProducto());
-        if (producto == null) {
-            return;
-        }
-        producto.setStock(producto.getStock() + pedido.getCantidad());
-        productoDAO.actualizar(producto);
     }
 
     /** Cuerpo de entrada de POST/PUT (campos opcionales distinguen "no enviado"). */

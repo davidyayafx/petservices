@@ -106,13 +106,20 @@ public class ClienteServlet extends HttpServlet {
         if ("eliminar".equals(accion)) {
             // ── ELIMINAR cliente (antes se hacía por GET) ─────────────────
             int idEliminar = parseId(request.getParameter("id"));
-            boolean eliminado = clienteDAO.eliminar(idEliminar);
-            if (eliminado) {
-                request.setAttribute("mensaje", "✅ Cliente eliminado correctamente.");
-                request.setAttribute("tipoMensaje", "exito");
-            } else {
-                request.setAttribute("mensaje", "❌ No se encontró el cliente.");
+            if (clienteDAO.tieneDependencias(idEliminar)) {
+                // Protección de integridad: no dejar mascotas/citas huérfanas.
+                request.setAttribute("mensaje",
+                        "❌ No se puede eliminar el cliente: tiene mascotas o citas asociadas.");
                 request.setAttribute("tipoMensaje", "error");
+            } else {
+                boolean eliminado = clienteDAO.eliminar(idEliminar);
+                if (eliminado) {
+                    request.setAttribute("mensaje", "✅ Cliente eliminado correctamente.");
+                    request.setAttribute("tipoMensaje", "exito");
+                } else {
+                    request.setAttribute("mensaje", "❌ No se encontró el cliente.");
+                    request.setAttribute("tipoMensaje", "error");
+                }
             }
 
         } else if ("crear".equals(accion)) {
@@ -121,20 +128,27 @@ public class ClienteServlet extends HttpServlet {
             String correo    = request.getParameter("correo");
             String contrasena = request.getParameter("contrasena");
 
-            Cliente nuevo = new Cliente(
-                    nombre.trim(),
-                    correo.trim().toLowerCase(),
-                    contrasena
-            );
-
-            boolean creado = clienteDAO.insertar(nuevo);
-            if (creado) {
-                request.setAttribute("mensaje", "✅ Cliente '" + nombre + "' creado.");
-                request.setAttribute("tipoMensaje", "exito");
-            } else {
-                request.setAttribute("mensaje",
-                        "❌ El correo '" + correo + "' ya está registrado.");
+            if (nombre == null || nombre.trim().isEmpty()
+                    || correo == null || correo.trim().isEmpty()
+                    || contrasena == null || contrasena.trim().isEmpty()) {
+                request.setAttribute("mensaje", "❌ Nombre, correo y contraseña son obligatorios.");
                 request.setAttribute("tipoMensaje", "error");
+            } else {
+                Cliente nuevo = new Cliente(
+                        nombre.trim(),
+                        correo.trim().toLowerCase(),
+                        contrasena
+                );
+
+                boolean creado = clienteDAO.insertar(nuevo);
+                if (creado) {
+                    request.setAttribute("mensaje", "✅ Cliente '" + nombre + "' creado.");
+                    request.setAttribute("tipoMensaje", "exito");
+                } else {
+                    request.setAttribute("mensaje",
+                            "❌ El correo '" + correo + "' ya está registrado.");
+                    request.setAttribute("tipoMensaje", "error");
+                }
             }
 
         } else if ("actualizar".equals(accion)) {
@@ -143,6 +157,14 @@ public class ClienteServlet extends HttpServlet {
             String nombre    = request.getParameter("nombre");
             String correo    = request.getParameter("correo");
             String contrasena = request.getParameter("contrasena");
+
+            if (nombre == null || nombre.trim().isEmpty()
+                    || correo == null || correo.trim().isEmpty()) {
+                request.setAttribute("mensaje", "❌ Nombre y correo son obligatorios.");
+                request.setAttribute("tipoMensaje", "error");
+                cargarListaYForwardear(request, response);
+                return;
+            }
 
             // Recuperar datos actuales para no pisar la contraseña si viene vacía
             Cliente existente = clienteDAO.buscarPorId(id);

@@ -1,68 +1,196 @@
 package com.petservices.dao;
 
+import com.petservices.db.BaseDatos;
+import com.petservices.db.BaseDatosException;
+import com.petservices.db.Jdbc;
 import com.petservices.modelo.Producto;
 
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * DAO de productos e inventario sobre SQLite.
+ *
+ * El estado se calcula a partir del stock para evitar incoherencias:
+ * stock &gt; 0 = disponible; stock = 0 = agotado. El nombre es único sin
+ * distinguir mayúsculas.
+ */
 public class ProductoDAO implements IProductoDAO {
 
-    private static final ConcurrentHashMap<Long, Producto> BASE_DATOS = new ConcurrentHashMap<>();
-    private static final AtomicLong CONTADOR_ID = new AtomicLong(1);
-
-    static {
-        guardarDummy("Croquetas Pedigree Adulto 10kg", "Alimento", 45000.00, 30);
-        guardarDummy("Shampoo Antipulgas", "Medicamento", 18000.00, 50);
-        guardarDummy("Collar Reflectivo", "Accesorio", 25000.00, 15);
-        guardarDummy("Juguete Mordedor", "Juguete", 22000.00, 40);
-    }
-
-    private static void guardarDummy(String nombre, String categoria, double precio, int stock) {
-        long id = CONTADOR_ID.getAndIncrement();
-        Producto producto = new Producto((int) id, nombre, categoria, precio, stock);
-        BASE_DATOS.put(id, producto);
-    }
+    private static final String COLUMNAS =
+            "id_producto, nombre, categoria, precio, stock, descripcion, estado, "
+            + "id_establecimiento, id_cliente";
 
     @Override
     public boolean insertar(Producto producto) {
-        if (producto == null) {
+        if (!datosValidos(producto)) {
             return false;
         }
-        long id = CONTADOR_ID.getAndIncrement();
-        producto.setIdProducto((int) id);
-        if (producto.getEstado() == null || producto.getEstado().trim().isEmpty()) {
-            producto.setEstado("disponible");
+        Integer idEstablecimiento = normalizarId(producto.getIdEstablecimiento());
+        Integer idCliente = normalizarId(producto.getIdCliente());
+        String descripcion = descripcion(producto);
+        String estado = estado(producto.getStock());
+
+        String sql = "INSERT INTO productos "
+                + "(nombre, categoria, precio, stock, descripcion, estado, "
+                + " id_establecimiento, id_cliente) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conexion = BaseDatos.conexion()) {
+            long id = Jdbc.insertar(conexion, sql, producto.getNombre().trim(),
+                    producto.getCategoria().trim(), producto.getPrecio(), producto.getStock(),
+                    descripcion, estado, idEstablecimiento, idCliente);
+            producto.setIdProducto((int) id);
+            producto.setDescripcion(descripcion);
+            producto.setEstado(estado);
+            producto.setIdEstablecimiento(idEstablecimiento == null ? 0 : idEstablecimiento);
+            producto.setIdCliente(idCliente);
+            return true;
+        } catch (SQLException e) {
+            if (BaseDatosException.esDuplicado(e) || BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "insertar producto");
         }
-        BASE_DATOS.put(id, producto);
-        return true;
     }
 
     @Override
     public List<Producto> listarTodos() {
-        List<Producto> lista = new ArrayList<>(BASE_DATOS.values());
-        lista.sort(Comparator.comparingInt(Producto::getIdProducto));
-        return lista;
+        String sql = "SELECT " + COLUMNAS + " FROM productos ORDER BY id_producto";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.lista(conexion, sql, ProductoDAO::mapear);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "listar productos");
+        }
     }
 
     @Override
     public Producto buscarPorId(int id) {
-        return BASE_DATOS.get((long) id);
+        if (id <= 0) {
+            return null;
+        }
+        String sql = "SELECT " + COLUMNAS + " FROM productos WHERE id_producto = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.uno(conexion, sql, ProductoDAO::mapear, id);
+        } catch (SQLException e) {
+            throw BaseDatosException.desde(e, "buscar producto por id");
+        }
     }
 
     @Override
     public boolean actualizar(Producto producto) {
-        if (producto == null || !BASE_DATOS.containsKey((long) producto.getIdProducto())) {
+        if (!datosValidos(producto) || producto.getIdProducto() <= 0) {
             return false;
         }
-        BASE_DATOS.put((long) producto.getIdProducto(), producto);
-        return true;
+        if (buscarPorId(producto.getIdProducto()) == null) {
+            return false;
+        }
+        Integer idEstablecimiento = normalizarId(producto.getIdEstablecimiento());
+        Integer idCliente = normalizarId(producto.getIdCliente());
+        String descripcion = descripcion(producto);
+        String estado = estado(producto.getStock());
+
+        String sql = "UPDATE productos SET nombre = ?, categoria = ?, precio = ?, stock = ?, "
+                + "descripcion = ?, estado = ?, id_establecimiento = ?, id_cliente = ? "
+                + "WHERE id_producto = ?";
+        try (Connection conexion = BaseDatos.conexion()) {
+            int filas = Jdbc.ejecutar(conexion, sql, producto.getNombre().trim(),
+                    producto.getCategoria().trim(), producto.getPrecio(), producto.getStock(),
+                    descripcion, estado, idEstablecimiento, idCliente, producto.getIdProducto());
+            if (filas > 0) {
+                producto.setDescripcion(descripcion);
+                producto.setEstado(estado);
+                producto.setIdEstablecimiento(idEstablecimiento == null ? 0 : idEstablecimiento);
+                producto.setIdCliente(idCliente);
+            }
+            return filas > 0;
+        } catch (SQLException e) {
+            if (BaseDatosException.esDuplicado(e) || BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "actualizar producto");
+        }
     }
 
     @Override
     public boolean eliminar(int id) {
-        return BASE_DATOS.remove((long) id) != null;
+        if (id <= 0) {
+            return false;
+        }
+        try (Connection conexion = BaseDatos.conexion()) {
+            return Jdbc.ejecutar(conexion, "DELETE FROM productos WHERE id_producto = ?", id) > 0;
+        } catch (SQLException e) {
+            if (BaseDatosException.esRestriccion(e)) {
+                return false;
+            }
+            throw BaseDatosException.desde(e, "eliminar producto");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Operaciones dentro de una transacción (usadas por PedidoService)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /** Busca un producto reutilizando la conexión de una transacción. */
+    public Producto buscarPorId(Connection conexion, int id) throws SQLException {
+        String sql = "SELECT " + COLUMNAS + " FROM productos WHERE id_producto = ?";
+        return Jdbc.uno(conexion, sql, ProductoDAO::mapear, id);
+    }
+
+    /** Descuenta stock solo si hay existencias suficientes; devuelve false si no alcanza. */
+    public boolean descontarStock(Connection conexion, int idProducto, int cantidad) throws SQLException {
+        return Jdbc.ejecutar(conexion,
+                "UPDATE productos SET stock = stock - ?, "
+                        + "estado = CASE WHEN (stock - ?) > 0 THEN 'disponible' ELSE 'agotado' END "
+                        + "WHERE id_producto = ? AND stock >= ?",
+                cantidad, cantidad, idProducto, cantidad) > 0;
+    }
+
+    /** Devuelve unidades al inventario (al editar o eliminar un pedido). */
+    public void devolverStock(Connection conexion, int idProducto, int cantidad) throws SQLException {
+        Jdbc.ejecutar(conexion,
+                "UPDATE productos SET stock = stock + ?, "
+                        + "estado = CASE WHEN (stock + ?) > 0 THEN 'disponible' ELSE 'agotado' END "
+                        + "WHERE id_producto = ?",
+                cantidad, cantidad, idProducto);
+    }
+
+    private static boolean datosValidos(Producto producto) {
+        return producto != null
+                && producto.getNombre() != null && !producto.getNombre().trim().isEmpty()
+                && producto.getCategoria() != null && !producto.getCategoria().trim().isEmpty()
+                && producto.getPrecio() > 0
+                && producto.getStock() >= 0;
+    }
+
+    private static String descripcion(Producto producto) {
+        String descripcion = producto.getDescripcion();
+        if (descripcion == null || descripcion.trim().isEmpty()) {
+            return producto.getCategoria().trim();
+        }
+        return descripcion.trim();
+    }
+
+    private static String estado(int stock) {
+        return stock > 0 ? "disponible" : "agotado";
+    }
+
+    private static Integer normalizarId(Integer id) {
+        return id == null || id <= 0 ? null : id;
+    }
+
+    private static Producto mapear(ResultSet resultado) throws SQLException {
+        Producto producto = new Producto(
+                resultado.getInt("id_producto"),
+                resultado.getString("nombre"),
+                resultado.getString("categoria"),
+                resultado.getDouble("precio"),
+                resultado.getInt("stock"));
+        producto.setDescripcion(resultado.getString("descripcion"));
+        producto.setEstado(resultado.getString("estado"));
+        Integer idEstablecimiento = Jdbc.enteroNullable(resultado, "id_establecimiento");
+        producto.setIdEstablecimiento(idEstablecimiento == null ? 0 : idEstablecimiento);
+        producto.setIdCliente(Jdbc.enteroNullable(resultado, "id_cliente"));
+        return producto;
     }
 }

@@ -81,7 +81,9 @@ public class ProductoServlet extends BaseModuleServlet {
         if (productoDAO.insertar(producto)) {
             enviarMensaje(request, "✅ Producto registrado correctamente.", "exito");
         } else {
-            enviarMensaje(request, "❌ No fue posible registrar el producto.", "error");
+            enviarMensaje(request,
+                    "❌ No fue posible registrar el producto: el nombre ya existe o los datos no son válidos.",
+                    "error");
         }
     }
 
@@ -103,7 +105,9 @@ public class ProductoServlet extends BaseModuleServlet {
         if (productoDAO.actualizar(producto)) {
             enviarMensaje(request, "✅ Producto actualizado correctamente.", "exito");
         } else {
-            enviarMensaje(request, "❌ No se pudo actualizar el producto.", "error");
+            enviarMensaje(request,
+                    "❌ No se pudo actualizar el producto: el nombre ya existe o los datos no son válidos.",
+                    "error");
             request.setAttribute("productoEditar", existente);
         }
     }

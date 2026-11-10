@@ -89,7 +89,11 @@ public class MascotaApiServlet extends HttpServlet {
             return;
         }
         datos.volcarEn(nueva);
-        mascotaDAO.insertar(nueva);
+        if (!mascotaDAO.insertar(nueva)) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "No se pudo registrar la mascota: el dueño o el servicio indicado no existe");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nueva);
     }
 
@@ -118,7 +122,11 @@ public class MascotaApiServlet extends HttpServlet {
             return;
         }
         datos.volcarEn(existente);
-        mascotaDAO.actualizar(existente);
+        if (!mascotaDAO.actualizar(existente)) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "No se pudo actualizar la mascota: el dueño o el servicio indicado no existe");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
 
@@ -130,6 +138,11 @@ public class MascotaApiServlet extends HttpServlet {
         }
         if (id == ID_AUSENTE) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id de la mascota en la URL: /api/mascotas/{id}");
+            return;
+        }
+        if (mascotaDAO.tieneCitas(id)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se puede eliminar la mascota: tiene citas asociadas");
             return;
         }
         boolean eliminado = mascotaDAO.eliminar(id);
