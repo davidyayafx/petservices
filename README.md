@@ -416,4 +416,4 @@ lo que viene. Comentarios, correcciones y sugerencias son bienvenidos.
 - **Competencia:** Módulos de software codificados y probados
 - **Evidencias:** GA7-220501096-AA2-EV02 · GA7-220501096-AA5-EV03 · GA10-220501097-AA7-EV01 · GA10-220501097-AA10-EV01
 - **Repositorio:** <https://github.com/davidyayafx/petservices>
-- **Autor:** David Yaya ([@davidyayafx](https://github.com/davidyayafx))
+- **Autores:** David Yaya ([@davidyayafx](https://github.com/davidyayafx)) y Alejandro ([@SoyAbejo](https://github.com/SoyAbejo))
