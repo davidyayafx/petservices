@@ -1,7 +1,9 @@
 package com.petservices.dao;
 
+import com.petservices.db.BaseDatosPrueba;
 import com.petservices.modelo.Cliente;
 import com.petservices.util.PasswordUtil;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +15,11 @@ import static org.junit.jupiter.api.Assertions.*;
  * Los DAO son estáticos; cada prueba usa correos propios para no interferir.
  */
 class ClienteDAOTest {
+
+    @BeforeAll
+    static void prepararBaseDeDatos() {
+        BaseDatosPrueba.configurar();
+    }
 
     private final ClienteDAO dao = new ClienteDAO();
 

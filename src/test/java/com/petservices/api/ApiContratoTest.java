@@ -2,8 +2,10 @@ package com.petservices.api;
 
 import com.petservices.dao.CitaDAO;
 import com.petservices.dao.ClienteDAO;
+import com.petservices.db.BaseDatosPrueba;
 import com.petservices.modelo.Cita;
 import com.petservices.modelo.Cliente;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -28,6 +30,11 @@ import static org.junit.jupiter.api.Assertions.*;
  * derivado en citas.
  */
 class ApiContratoTest {
+
+    @BeforeAll
+    static void prepararBaseDeDatos() {
+        BaseDatosPrueba.configurar();
+    }
 
     // ── Infraestructura de simulación ──────────────────────────────────
 
