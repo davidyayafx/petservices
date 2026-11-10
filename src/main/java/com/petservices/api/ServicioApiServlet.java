@@ -54,11 +54,16 @@ public class ServicioApiServlet extends HttpServlet {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (nuevo.getNombre() == null || nuevo.getTipo() == null) {
+        if (nuevo.getNombre() == null || nuevo.getNombre().trim().isEmpty()
+                || nuevo.getTipo() == null || nuevo.getTipo().trim().isEmpty()) {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Los campos 'nombre' y 'tipo' son obligatorios");
             return;
         }
-        servicioDAO.insertar(nuevo);
+        if (!servicioDAO.insertar(nuevo)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "Ya existe un servicio con ese tipo y nombre");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
     }
 
@@ -86,7 +91,12 @@ public class ServicioApiServlet extends HttpServlet {
         if (datos.getNombre() != null) existente.setNombre(datos.getNombre());
         if (datos.getTipo() != null) existente.setTipo(datos.getTipo());
         if (datos.getIdMascota() != null) existente.setIdMascota(datos.getIdMascota());
-        servicioDAO.actualizar(existente);
+        if (!servicioDAO.actualizar(existente)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se pudo actualizar: ya existe un servicio con ese tipo y nombre, "
+                            + "o la mascota indicada no existe");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
 

@@ -136,7 +136,12 @@ public class CitaApiServlet extends HttpServlet {
         if (!resolverRelaciones(datos, nueva, response, true)) {
             return;
         }
-        citaDAO.insertar(nueva);
+        if (!citaDAO.insertar(nueva)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se pudo registrar la cita: ya existe una cita activa para esa mascota "
+                            + "en el mismo horario, o los datos relacionados no son válidos");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nueva);
     }
 
@@ -193,7 +198,12 @@ public class CitaApiServlet extends HttpServlet {
         if (!resolverRelaciones(datos, existente, response, false)) {
             return;
         }
-        citaDAO.actualizar(existente);
+        if (!citaDAO.actualizar(existente)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se pudo actualizar la cita: ya existe otra cita activa para esa mascota "
+                            + "en el mismo horario, o los datos relacionados no son válidos");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
 

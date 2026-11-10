@@ -72,14 +72,30 @@ public class ProductoApiServlet extends HttpServlet {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, MSG_JSON_INVALIDO);
             return;
         }
-        if (datos.nombre == null || datos.nombre.trim().isEmpty()) {
-            enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "El campo 'nombre' es obligatorio");
+        if (datos.nombre == null || datos.nombre.trim().isEmpty()
+                || datos.categoria == null || datos.categoria.trim().isEmpty()) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Los campos 'nombre' y 'categoria' son obligatorios");
+            return;
+        }
+        if (datos.precio == null || datos.precio <= 0) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "El campo 'precio' debe ser mayor que 0");
+            return;
+        }
+        if (datos.stock == null || datos.stock < 0) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "El campo 'stock' no puede ser negativo");
             return;
         }
 
         Producto nuevo = new Producto();
         datos.volcarEn(nuevo);
-        productoDAO.insertar(nuevo);
+        if (!productoDAO.insertar(nuevo)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "Ya existe un producto con ese nombre, o los datos relacionados no son válidos");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_CREATED, nuevo);
     }
 
@@ -106,7 +122,19 @@ public class ProductoApiServlet extends HttpServlet {
         }
 
         datos.volcarEn(existente);
-        productoDAO.actualizar(existente);
+        if (existente.getNombre() == null || existente.getNombre().trim().isEmpty()
+                || existente.getCategoria() == null || existente.getCategoria().trim().isEmpty()
+                || existente.getPrecio() <= 0 || existente.getStock() < 0) {
+            enviarError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    "Nombre/categoría no pueden quedar vacíos; el precio debe ser mayor que 0 "
+                            + "y el stock no puede ser negativo");
+            return;
+        }
+        if (!productoDAO.actualizar(existente)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se pudo actualizar: el nombre ya existe o los datos relacionados no son válidos");
+            return;
+        }
         enviarJson(response, HttpServletResponse.SC_OK, existente);
     }
 

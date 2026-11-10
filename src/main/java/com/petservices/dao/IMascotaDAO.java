@@ -17,4 +17,7 @@ public interface IMascotaDAO {
     boolean actualizar(Mascota mascota);
 
     boolean eliminar(int id);
+
+    /** Indica si la mascota tiene citas que impiden su borrado. */
+    boolean tieneCitas(int id);
 }

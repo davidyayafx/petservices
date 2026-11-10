@@ -147,6 +147,11 @@ public class ClienteApiServlet extends HttpServlet {
             enviarError(response, HttpServletResponse.SC_BAD_REQUEST, "Debe indicar el id del cliente en la URL: /api/clientes/{id}");
             return;
         }
+        if (clienteDAO.tieneDependencias(id)) {
+            enviarError(response, HttpServletResponse.SC_CONFLICT,
+                    "No se puede eliminar el cliente: tiene mascotas o citas asociadas");
+            return;
+        }
         boolean eliminado = clienteDAO.eliminar(id);
         if (eliminado) {
             enviarJson(response, HttpServletResponse.SC_OK, new MensajeDTO("Cliente eliminado correctamente"));
