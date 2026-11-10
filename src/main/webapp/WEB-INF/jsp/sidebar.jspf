@@ -6,7 +6,7 @@
         _ruta = request.getRequestURI();
     }
     String _activa = "";
-    String[] _modulos = {"dashboard", "clientes", "mascotas", "citas", "servicios", "productos", "pedidos"};
+    String[] _modulos = {"dashboard", "clientes", "mascotas", "citas", "servicios", "productos", "pedidos", "respaldos"};
     for (int _i = 0; _i < _modulos.length; _i++) {
         if (_ruta != null && _ruta.endsWith("/" + _modulos[_i])) {
             _activa = _modulos[_i];
@@ -78,6 +78,13 @@
                     <span class="nav-num" aria-hidden="true">07</span>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                     <span>Pedidos</span>
+                </a>
+            </li>
+            <li>
+                <a href="<%= request.getContextPath() %>/respaldos" class="nav-link<%= "respaldos".equals(_activa) ? " active" : "" %>"<%= "respaldos".equals(_activa) ? " aria-current=\"page\"" : "" %>>
+                    <span class="nav-num" aria-hidden="true">08</span>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    <span>Copias</span>
                 </a>
             </li>
         </ul>
