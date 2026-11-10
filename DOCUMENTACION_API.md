@@ -9,9 +9,10 @@ el estilo arquitectónico **REST**: un recurso por URL, verbos HTTP para las ope
 (`GET`, `POST`, `PUT`, `DELETE`) y códigos de estado HTTP estándar en la respuesta.
 
 Capa técnica: `HttpServlet` (Jakarta/Java Servlet 4.0) + `Gson` para (de)serialización JSON.
-Persistencia: DAO en memoria (misma estrategia que la evidencia AA2-EV02), estructurado
-para reemplazarse por JDBC contra el modelo físico `petconnect_completo.sql` sin cambiar
-los servlets ni los modelos.
+Persistencia (Fases 2 y 3): SQLite local en `datos/petservices.db` para **todos los módulos**
+(clientes, mascotas, citas, servicios, productos, pedidos/detalle y establecimientos). El
+contrato JSON se mantiene; se añaden respuestas `409` para duplicados y borrados protegidos, y
+validaciones de stock en pedidos.
 
 ---
 
@@ -24,7 +25,7 @@ los servlets ni los modelos.
 | `400 Bad Request` | Faltan campos obligatorios o el valor enviado no es válido |
 | `401 Unauthorized` | Credenciales incorrectas, o falta el token / no es válido |
 | `404 Not Found` | El recurso solicitado (por id) no existe |
-| `409 Conflict` | Violación de una regla de unicidad (ej. correo duplicado) |
+| `409 Conflict` | Duplicado (correo, servicio, cita en el mismo horario) o borrado bloqueado por registros relacionados |
 
 ### Autenticación obligatoria
 
@@ -110,7 +111,8 @@ Invalida el token enviado en `Authorization` (requiere token válido).
 ```
 Reglas: `nombre` y `correo` obligatorios. El correo debe tener formato `usuario@dominio.tld`
 (si no, `400 Bad Request`) y se guarda en **minúsculas**. Si el correo ya existe —al crear o al
-actualizar— responde `409 Conflict`.
+actualizar— responde `409 Conflict`. El `DELETE` responde `409` si el cliente tiene mascotas o
+citas asociadas; los pedidos conservan su nombre como historial y no bloquean el borrado.
 
 ---
 
@@ -133,6 +135,7 @@ Reglas: `raza` y `nombre` obligatorios. Si se envía `idCliente`, debe existir (
 y se recalcula `nombreCliente` con el nombre del dueño.
 El `PUT` es parcial: actualiza solo `nombre`, `especie`, `raza`, `edad`, `idCliente` e `idServicio`
 cuando vienen en el cuerpo; si cambia el dueño, se vuelve a resolver `nombreCliente`.
+El `DELETE` responde `409` si la mascota tiene citas asociadas.
 
 ---
 
@@ -150,7 +153,9 @@ cuando vienen en el cuerpo; si cambia el dueño, se vuelve a resolver `nombreCli
 ```json
 { "nombre": "Veterinaria Norte", "tipo": "veterinaria", "direccion": "Cra 5 #10-20 Tunja", "telefono": "3201234567" }
 ```
-Reglas: `nombre` y `tipo` obligatorios. `tipo` corresponde a `petshop | veterinaria | mixto` (regla definida en el modelo físico).
+Reglas: `nombre` y `tipo` obligatorios y no vacíos. El nombre es único: un duplicado responde
+`409 Conflict`. `tipo` corresponde a `petshop | veterinaria | mixto` (regla definida en el modelo
+físico).
 
 ---
 
@@ -168,7 +173,8 @@ Reglas: `nombre` y `tipo` obligatorios. `tipo` corresponde a `petshop | veterina
 ```json
 { "tipo": "Consulta", "nombre": "Desparasitación" }
 ```
-Reglas: `tipo` y `nombre` obligatorios.
+Reglas: `tipo` y `nombre` obligatorios y no vacíos. La combinación `tipo + nombre` es única:
+un duplicado responde `409 Conflict` (también al actualizar).
 
 ---
 
@@ -203,6 +209,10 @@ toman del cuerpo de la petición.
 **DELETE:** elimina la cita. Para **cancelarla sin borrarla**, use
 `PUT /api/citas/{id}` con `{"estado":"cancelada"}`.
 
+**Duplicados:** no se permite más de una cita **activa** para la misma mascota en el mismo
+`fechaHora`; el intento responde `409 Conflict`. Las citas canceladas no cuentan, de modo que
+se puede reagendar ese horario.
+
 ---
 
 ## 7. Productos — `/api/productos`
@@ -220,8 +230,10 @@ toman del cuerpo de la petición.
 ```json
 { "nombre": "Collar antipulgas", "descripcion": "Talla M", "precio": 32000.0, "stock": 25, "idEstablecimiento": 2 }
 ```
-Reglas: `nombre` obligatorio. El `PUT` es parcial: `stock` (y el resto de campos) solo se
-modifica cuando se envía; antes, omitir `stock` lo dejaba en 0.
+Reglas: `nombre` y `categoria` obligatorios; `precio > 0`; `stock >= 0`. El nombre es único sin
+distinguir mayúsculas: un duplicado responde `409 Conflict`. El `PUT` es parcial: `stock` (y el
+resto de campos) solo se modifica cuando se envía; antes, omitir `stock` lo dejaba en 0. El
+`estado` se calcula desde el stock (`disponible`/`agotado`).
 
 ---
 
@@ -235,11 +247,22 @@ modifica cuando se envía; antes, omitir `stock` lo dejaba en 0.
 | PUT | `/api/pedidos/{id}` | Actualiza estado, total o cantidad |
 | DELETE | `/api/pedidos/{id}` | Elimina un pedido |
 
-**Body para POST:**
+**Body para POST con producto (recomendado):**
+```json
+{ "idCliente": 1, "idProducto": 1, "cantidad": 2, "fecha": "2026-08-01", "estado": "Pendiente" }
+```
+El servidor valida el stock, calcula el total con el precio vigente, descuenta las unidades e
+inserta pedido + detalle en una sola transacción.
+
+**Body para POST con total manual (compatibilidad):**
 ```json
 { "total": 45000.0, "cantidad": 1, "idCliente": 1, "idEstablecimiento": 2 }
 ```
-Reglas: `total` debe ser mayor que 0.
+Reglas: `total` debe ser mayor que 0. Este modo no toca stock.
+
+**PUT:** si envía `idProducto` o `cantidad`, se reemplaza el detalle y se ajusta el stock
+(devuelve el anterior y descuenta el nuevo). Si solo envía `estado`/`total`, no se toca el
+inventario. Un pedido sin stock suficiente responde `400` y no crea ni modifica nada.
 
 ---
 
