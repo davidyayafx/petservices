@@ -32,7 +32,9 @@ No hace falta instalar Maven ni Tomcat: están en `herramientas/`, junto al proy
 Si solo necesitas **ver la aplicación funcionando**, no hace falta compilar ni configurar Tomcat:
 usa el paquete ya armado que está en **Releases**.
 
-**Descarga:** [`PetServices-Portable.zip` — v1.0.0](https://github.com/davidyayafx/petservices/releases/tag/v1.0.0) (13 MB)
+**Descarga publicada:** [`PetServices-Portable.zip` — v1.0.0](https://github.com/davidyayafx/petservices/releases/tag/v1.0.0) (13 MB).
+**Versión vigente local (2026-11-10):** `..\EVIDENCIAS_SENA\Paquete_Portable\PetServices-Portable-v1.1.0.zip`
+(26,7 MB), con copias de seguridad y restauración.
 
 1. Descomprime el ZIP en una carpeta propia.
 2. Doble clic en `Iniciar-PetServices.bat` (requiere **Java 11+**; el lanzador avisa si falta).
@@ -55,19 +57,20 @@ cd petservices
 ..\herramientas\apache-maven\bin\mvn.cmd -o clean package
 ```
 
-Salida: `target/petservices.war` (~647 KB).
-`-o` compila en modo offline con el repositorio local ya descargado.
+Salida: `target/petservices.war` (~14,8 MB, incluye el driver SQLite).
+`-o` compila en modo offline con el repositorio local ya descargado. La primera compilación
+necesita internet para descargar `sqlite-jdbc`; después queda en `~/.m2`.
 
 O bien, desde la raíz del repositorio:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\compilar_war.ps1 -Limpiar
+powershell -ExecutionPolicy Bypass -File ..\scripts\compilar_war.ps1 -Limpiar
 ```
 
 ### 2. Desplegar en Tomcat
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\desplegar_tomcat.ps1
+powershell -ExecutionPolicy Bypass -File ..\scripts\desplegar_tomcat.ps1
 ```
 
 Copia el WAR a `herramientas/tomcat9/webapps`, arranca Tomcat y espera a que responda
@@ -98,7 +101,7 @@ Detalle completo (despliegue limpio, configuración y problemas frecuentes) en
 
 ## Cuentas de prueba
 
-Datos en memoria que se recrean en cada arranque:
+Datos iniciales que se cargan una sola vez en `datos/petservices.db` y después se conservan:
 
 | Correo | Contraseña |
 |---|---|
@@ -158,7 +161,7 @@ Notas del contrato vigente:
 Prueba rápida (hace login y prueba los 14 casos):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ..\documentacion_tecnica\scripts\probar_api.ps1
+powershell -ExecutionPolicy Bypass -File ..\scripts\probar_api.ps1
 ```
 
 ---
@@ -175,13 +178,15 @@ petservices/
 └── src/main/
     ├── java/com/petservices/
     │   ├── modelo/                ← JavaBeans del modelo (8 clases)
-    │   ├── dao/                   ← 7 DAO + 7 interfaces I*DAO (memoria, hilos-seguro)
+    │   ├── db/                    ← SQLite: conexión, migraciones, semillas, errores
+    │   ├── dao/                   ← 7 DAO + 7 interfaces I*DAO (JDBC sobre SQLite)
+    │   ├── service/               ← PedidoService (pedido + stock transaccional)
     │   ├── servlet/               ← Registro, Login, Logout, Cliente
     │   ├── controller/            ← BaseModuleServlet + Dashboard + 6 CRUD
     │   └── api/                   ← 7 *ApiServlet + AuthApiServlet + util/ApiUtil
     └── webapp/
         ├── index.jsp
-        ├── vistas/                ← login, registro, dashboard, 6 CRUD, error404/500
+        ├── vistas/                ← login, registro, dashboard, 6 CRUD, error404/500/503
         ├── css/app.css
         └── WEB-INF/
             ├── web.xml            ← welcome-file, sesión 30 min, páginas de error
@@ -231,17 +236,22 @@ Arquitectura detallada en [`../DOCUMENTACION/ARQUITECTURA.md`](../DOCUMENTACION/
 - **Gson 2.10.1** — (de)serialización JSON
 - **Apache Tomcat 9** — servidor de aplicaciones
 - **Maven 3.9** — build y dependencias
-- **DAO en memoria** (`ConcurrentHashMap`) — sin base de datos en la demo
+- **SQLite** (`org.xerial:sqlite-jdbc`) — base local embebida en `datos/petservices.db`
 
 ---
 
 ## Limitaciones conocidas
 
-- **Datos en memoria**: se reinician con las semillas (3 clientes, 4 mascotas, 4 citas,
-  3 servicios, 4 productos, 3 establecimientos, 2 pedidos).
+- **Persistencia completa**: clientes, mascotas, citas, servicios, productos, pedidos y
+  establecimientos están en SQLite y sobreviven a los reinicios.
 - **La API exige token Bearer**; las contraseñas se guardan con PBKDF2-HMAC-SHA256.
-- **Pruebas**: 31 unitarias (JUnit 5) + 14 casos de humo de API; ejecute
-  `..\documentacion_tecnica\scripts\verificar_todo.ps1`.
+- **Pruebas**: 56 unitarias (JUnit 5) + 14 casos de humo de API; ejecute
+  `..\scripts\verificar_todo.ps1`.
+- **Copias**: la página `/respaldos` crea, descarga y restaura copias en `..\datos\copias\`,
+  con copia automática al arrancar y retención configurable. Los scripts
+  `respaldar_bd.ps1` y `restaurar_bd.ps1` operan con el servidor detenido.
+- **Stock de pedidos**: se descuenta al crear, se ajusta al editar y se devuelve al eliminar,
+  todo dentro de una transacción SQLite.
 - Los borrados del panel van por **POST con token CSRF** (ya no por GET).
 - Los pedidos **descuentan stock** al crearse y lo devuelven al editarse o eliminarse.
 - `desplegar_tomcat.ps1 -Accion Detener` necesita `CATALINA_HOME` (ver Instalación).
@@ -259,4 +269,4 @@ Análisis completo y pendientes en
 - **Evidencias:** GA7-220501096-AA2-EV02 · GA7-220501096-AA5-EV03 · GA10-220501097-AA7-EV01 · AA10-EV01 (manual técnico)
 - **Competencia:** Módulos de software codificados y probados
 - **Repositorio:** `https://github.com/davidyayafx/PetServices` (rama `main`)
-- **Manual técnico:** [`../documentacion_tecnica/README.md`](../documentacion_tecnica/README.md)
+- **Manual técnico:** [`../EVIDENCIAS_SENA/AA10_Documentacion_Tecnica/README.md`](../EVIDENCIAS_SENA/AA10_Documentacion_Tecnica/README.md)
