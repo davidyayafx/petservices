@@ -20,3 +20,10 @@ Thumbs.db
 
 # --- Herramientas de agentes / diseño ---
 .impeccable/
+
+# --- Base de datos local SQLite ---
+petservices.db
+*.db
+*.db-wal
+*.db-shm
+datos/
